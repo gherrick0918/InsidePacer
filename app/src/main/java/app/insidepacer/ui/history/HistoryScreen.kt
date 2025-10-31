@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +44,7 @@ fun HistoryScreen(onBack: () -> Unit, onOpen: (SessionLog) -> Unit) {
     val repo = remember { SessionRepo(ctx) }
     var items by remember { mutableStateOf(emptyList<SessionLog>()) }
     val scope = rememberCoroutineScope()
+    var showConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { items = repo.loadAll().sortedByDescending { it.startMillis } }
 
@@ -73,6 +75,7 @@ fun HistoryScreen(onBack: () -> Unit, onOpen: (SessionLog) -> Unit) {
                             ctx.startActivity(Intent.createChooser(share, "Export session CSVs"))
                         }
                     }) { Text("Export") }
+                    TextButton(onClick = { showConfirm = true }) { Text("Clear") }
                 }
             )
         }
@@ -94,6 +97,26 @@ fun HistoryScreen(onBack: () -> Unit, onOpen: (SessionLog) -> Unit) {
                 }
             }
         }
+    }
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Clear history?") },
+            text = { Text("This will remove all saved sessions. This can’t be undone.") },
+            confirmButton = {
+                val scope = rememberCoroutineScope()
+                TextButton(onClick = {
+                    scope.launch {
+                        repo.clear()
+                        items = emptyList()
+                        showConfirm = false
+                    }
+                }) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

@@ -67,4 +67,9 @@ class SessionRepo(private val ctx: Context) {
         }
         sessionsCsv to segsCsv
     }
+
+    suspend fun clear() = withContext(Dispatchers.IO) {
+        val f = File(ctx.filesDir, "sessions.json")
+        if (f.exists()) f.writeText("[]")  // or: f.delete()
+    }
 }
