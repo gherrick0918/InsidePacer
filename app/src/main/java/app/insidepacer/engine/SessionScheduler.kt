@@ -12,11 +12,15 @@ class SessionScheduler(
     val state: StateFlow<SessionState> = _state
     private var job: Job? = null
 
-    fun start(segments: List<Segment>) {
+    fun start(
+        segments: List<Segment>,
+        onComplete: (startMillis: Long, endMillis: Long) -> Unit = { _, _ -> }
+    ) {
         job?.cancel()
         _state.value = SessionState() // reset HUD
         job = scope.launch {
             cuePlayer.countdown321Aligned()
+            val startMs = System.currentTimeMillis()
 
             for (idx in segments.indices) {
                 val seg = segments[idx]
@@ -24,11 +28,8 @@ class SessionScheduler(
 
                 var t = seg.seconds
                 _state.value = _state.value.copy(
-                    active = true,
-                    speed = seg.speed,
-                    currentSegment = idx,
-                    nextChangeInSec = t,
-                    upcomingSpeed = nextSpeed
+                    active = true, speed = seg.speed, currentSegment = idx,
+                    nextChangeInSec = t, upcomingSpeed = nextSpeed
                 )
 
                 while (t > 0) {
@@ -41,13 +42,12 @@ class SessionScheduler(
                         nextChangeInSec = t
                     )
                 }
-
-                // Only say "change now" if there's another segment coming
                 if (nextSpeed != null) cuePlayer.changeNowTo(nextSpeed)
             }
 
-            cuePlayer.changeNowTo(null) // final "Session complete"
+            cuePlayer.changeNowTo(null) // "Session complete"
             _state.value = _state.value.copy(active = false, upcomingSpeed = null)
+            onComplete(startMs, System.currentTimeMillis())
         }
     }
 

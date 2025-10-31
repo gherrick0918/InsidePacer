@@ -19,6 +19,9 @@ import app.insidepacer.domain.SessionState
 import app.insidepacer.engine.CuePlayer
 import app.insidepacer.engine.SessionScheduler
 import java.util.Locale
+import app.insidepacer.data.SessionRepo
+import app.insidepacer.domain.SessionLog
+import kotlinx.coroutines.launch
 
 private fun hms(total: Int): String {
     val h = total / 3600
@@ -30,7 +33,7 @@ private fun hms(total: Int): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuickSessionScreen(onEditSpeeds: () -> Unit) {
+fun QuickSessionScreen(onEditSpeeds: () -> Unit, onHistory: () -> Unit) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepo(ctx) }
     val speeds by repo.speeds.collectAsState(initial = emptyList())
@@ -43,6 +46,9 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit) {
     var selected by remember { mutableStateOf<Double?>(null) }
     var secsText by remember { mutableStateOf("60") }
     val segments = remember { mutableStateListOf<Segment>() }
+
+    val sessionRepo = remember { SessionRepo(ctx) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = { CenterAlignedTopAppBar(title = { Text("InsidePacer") }) }
@@ -113,11 +119,30 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = { if (segments.isNotEmpty()) scheduler.start(segments.toList()) },
+                        onClick = {
+                            if (segments.isNotEmpty()) {
+                                val segs = segments.toList()
+                                scheduler.start(segs) { startMs, endMs ->
+                                    val total = segs.sumOf { it.seconds }
+                                    val log = SessionLog(
+                                        id = "sess_${startMs}",
+                                        startMillis = startMs,
+                                        endMillis = endMs,
+                                        totalSeconds = total,
+                                        segments = segs
+                                    )
+                                    scope.launch {
+                                        sessionRepo.append(log)
+                                    }
+                                }
+                            }
+                        },
                         enabled = !isRunning && segments.isNotEmpty()
                     ) { Text("Start") }
+
                     OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
                     TextButton(onClick = onEditSpeeds) { Text("Edit speeds") }
+                    TextButton(onClick = onHistory) { Text("History") }
                 }
             }
         }
