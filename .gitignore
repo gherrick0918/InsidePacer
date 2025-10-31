@@ -1,0 +1,15 @@
+# Android/Gradle/IDE
+.gradle/
+**/build/
+local.properties
+.idea/
+*.iml
+# keystores & secrets (never commit these)
+*.jks
+*.keystore
+*.pem
+*.p12
+# generated
+**/generated/
+*.jks
+*.keystore
