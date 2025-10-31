@@ -10,26 +10,35 @@ class SessionScheduler(
 ) {
     private val _state = MutableStateFlow(SessionState())
     val state: StateFlow<SessionState> = _state
+
     private var job: Job? = null
+    private var plan: List<Segment> = emptyList()
+    private var startMs: Long = 0L
+    private var onFinish: ((startMs: Long, endMs: Long, elapsedSec: Int, aborted: Boolean) -> Unit)? = null
 
     fun start(
         segments: List<Segment>,
-        onComplete: (startMillis: Long, endMillis: Long) -> Unit = { _, _ -> }
+        onComplete: (startMillis: Long, endMillis: Long, elapsedSec: Int, aborted: Boolean) -> Unit = { _, _, _, _ -> }
     ) {
         job?.cancel()
         _state.value = SessionState() // reset HUD
+        plan = segments
+        onFinish = onComplete
         job = scope.launch {
             cuePlayer.countdown321Aligned()
-            val startMs = System.currentTimeMillis()
+            startMs = System.currentTimeMillis()
 
-            for (idx in segments.indices) {
-                val seg = segments[idx]
-                val nextSpeed = segments.getOrNull(idx + 1)?.speed
+            for (idx in plan.indices) {
+                val seg = plan[idx]
+                val nextSpeed = plan.getOrNull(idx + 1)?.speed
 
                 var t = seg.seconds
                 _state.value = _state.value.copy(
-                    active = true, speed = seg.speed, currentSegment = idx,
-                    nextChangeInSec = t, upcomingSpeed = nextSpeed
+                    active = true,
+                    speed = seg.speed,
+                    currentSegment = idx,
+                    nextChangeInSec = t,
+                    upcomingSpeed = nextSpeed
                 )
 
                 while (t > 0) {
@@ -42,17 +51,21 @@ class SessionScheduler(
                         nextChangeInSec = t
                     )
                 }
+
                 if (nextSpeed != null) cuePlayer.changeNowTo(nextSpeed)
             }
 
-            cuePlayer.changeNowTo(null) // "Session complete"
+            cuePlayer.changeNowTo(null) // “Session complete”
             _state.value = _state.value.copy(active = false, upcomingSpeed = null)
-            onComplete(startMs, System.currentTimeMillis())
+            onFinish?.invoke(startMs, System.currentTimeMillis(), _state.value.elapsedSec, /*aborted=*/false)
         }
     }
 
     fun stop() {
+        val endMs = System.currentTimeMillis()
         job?.cancel()
+        val elapsed = _state.value.elapsedSec
         _state.value = SessionState() // clear HUD
+        onFinish?.invoke(startMs, endMs, elapsed, /*aborted=*/true)
     }
 }

@@ -12,10 +12,12 @@ import kotlinx.serialization.Serializable
     val upcomingSpeed: Double? = null
 )
 
-@Serializable data class SessionLog(
-    val id: String,                // e.g., "sess_1730400000000"
+@kotlinx.serialization.Serializable
+data class SessionLog(
+    val id: String,
     val startMillis: Long,
     val endMillis: Long,
     val totalSeconds: Int,
-    val segments: List<Segment>
+    val segments: List<Segment>,
+    val aborted: Boolean
 )

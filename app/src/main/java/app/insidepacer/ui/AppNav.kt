@@ -42,7 +42,7 @@ fun AppNav() {
         composable("quick") {
             QuickSessionScreen(
                 onEditSpeeds = { nav.navigate("onboarding") },
-                onHistory = { nav.navigate("history") }
+                onOpenHistory = { nav.navigate("history") }
             )
         }
 
