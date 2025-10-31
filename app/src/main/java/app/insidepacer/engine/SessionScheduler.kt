@@ -7,36 +7,52 @@ import kotlinx.coroutines.flow.*
 class SessionScheduler(
     private val cuePlayer: CuePlayer,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
-){
+) {
     private val _state = MutableStateFlow(SessionState())
     val state: StateFlow<SessionState> = _state
     private var job: Job? = null
 
-    fun start(segments: List<Segment>){
+    fun start(segments: List<Segment>) {
         job?.cancel()
-        _state.value = SessionState(active = false) // clear previous run
+        _state.value = SessionState() // reset HUD
         job = scope.launch {
-            cuePlayer.countdown321()
-            var segIdx = 0
-            for (seg in segments){
+            cuePlayer.countdown321Aligned()
+
+            for (idx in segments.indices) {
+                val seg = segments[idx]
+                val nextSpeed = segments.getOrNull(idx + 1)?.speed
+
                 var t = seg.seconds
-                _state.value = _state.value.copy(speed = seg.speed, currentSegment = segIdx, nextChangeInSec = t, active = true)
-                while (t > 0){
-                    if (t == 10) cuePlayer.preChange()
+                _state.value = _state.value.copy(
+                    active = true,
+                    speed = seg.speed,
+                    currentSegment = idx,
+                    nextChangeInSec = t,
+                    upcomingSpeed = nextSpeed
+                )
+
+                while (t > 0) {
+                    if (t == 10) cuePlayer.preChangeTo(nextSpeed)
+                    if (t in 3 downTo 1) cuePlayer.beep()
                     delay(1000)
                     t--
-                    _state.value = _state.value.copy(elapsedSec = _state.value.elapsedSec + 1, nextChangeInSec = t)
+                    _state.value = _state.value.copy(
+                        elapsedSec = _state.value.elapsedSec + 1,
+                        nextChangeInSec = t
+                    )
                 }
-                cuePlayer.changeNow()
-                segIdx++
+
+                // Only say "change now" if there's another segment coming
+                if (nextSpeed != null) cuePlayer.changeNowTo(nextSpeed)
             }
-            cuePlayer.finish()
-            _state.value = _state.value.copy(active = false)
+
+            cuePlayer.changeNowTo(null) // final "Session complete"
+            _state.value = _state.value.copy(active = false, upcomingSpeed = null)
         }
     }
-    fun stop()
-    {
-        job?.cancel();
-        _state.value = SessionState(active = false)
+
+    fun stop() {
+        job?.cancel()
+        _state.value = SessionState() // clear HUD
     }
 }
