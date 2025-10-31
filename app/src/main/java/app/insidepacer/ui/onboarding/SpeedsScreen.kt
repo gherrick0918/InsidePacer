@@ -28,47 +28,31 @@ fun SpeedsScreen(onContinue: () -> Unit) {
 
     val speeds by repo.speeds.collectAsState(initial = emptyList())
     val units by repo.units.collectAsState(initial = Units.MPH)
-
     var input by remember { mutableStateOf("") }
 
-    Scaffold(
-        topBar = { CenterAlignedTopAppBar(title = { Text("InsidePacer") }) }
-    ) { inner ->
+    Scaffold(topBar = { CenterAlignedTopAppBar(title = { Text("InsidePacer") }) }) { inner ->
         Column(
-            Modifier
-                .padding(inner)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+            Modifier.padding(inner).padding(16.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Available speeds", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(12.dp))
 
-            // Saved speeds row (will be empty until user adds)
             if (speeds.isEmpty()) {
                 Text("No speeds yet")
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(speeds) { s ->
-                        FilterChip(
-                            selected = false,
-                            onClick = { /* maybe toggle select */ },
-                            label = { Text(String.format("%.1f", s)) },
+                        AssistChip(
+                            onClick = { /* no-op */ },
+                            label = { Text(String.format(Locale.getDefault(), "%.1f", s)) },
                             trailingIcon = {
-                                Text("×", modifier = Modifier
-                                    .padding(start = 4.dp)
-                                    .clickable { scope.launch { repo.setSpeeds(speeds.filter { it != s }) } })
+                                Text("×",
+                                    modifier = Modifier
+                                        .padding(start = 4.dp)
+                                        .clickable { scope.launch { repo.setSpeeds(speeds.filter { it != s }) } })
                             }
                         )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                // delete buttons for each chip
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(speeds) { s ->
-                        OutlinedButton(onClick = {
-                            scope.launch { repo.setSpeeds(speeds.filter { it != s }) }
-                        }) { Text("Remove ${String.format("%.1f", s)}") }
                     }
                 }
             }
