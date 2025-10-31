@@ -14,6 +14,7 @@ class SessionScheduler(
 
     fun start(segments: List<Segment>){
         job?.cancel()
+        _state.value = SessionState(active = false) // clear previous run
         job = scope.launch {
             cuePlayer.countdown321()
             var segIdx = 0
@@ -33,5 +34,9 @@ class SessionScheduler(
             _state.value = _state.value.copy(active = false)
         }
     }
-    fun stop(){ job?.cancel(); _state.value = _state.value.copy(active=false) }
+    fun stop()
+    {
+        job?.cancel();
+        _state.value = SessionState(active = false)
+    }
 }

@@ -28,14 +28,18 @@ fun SessionRunScreen(){
 
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center){
         Column(horizontalAlignment = Alignment.CenterHorizontally){
-            Text("Speed: ${'$'}{state.speed}")
-            Text("Next change in: ${'$'}{state.nextChangeInSec}s")
-            Text("Elapsed: ${'$'}{state.elapsedSec}s")
+            val isRunning = state.active
+
+            Text("Speed: ${state.speed}")
+            Text("Next change in: ${state.nextChangeInSec}s")
+            Text("Elapsed: ${state.elapsedSec}s")
+
             Spacer(Modifier.height(16.dp))
+
             Row {
-                Button(onClick = { scheduler.start(demo) }){ Text("Start demo") }
+                Button(onClick = { scheduler.start(demo) }, enabled = !isRunning) { Text("Start demo") }
                 Spacer(Modifier.width(12.dp))
-                Button(onClick = { scheduler.stop() }){ Text("Stop") }
+                Button(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
             }
         }
     }
