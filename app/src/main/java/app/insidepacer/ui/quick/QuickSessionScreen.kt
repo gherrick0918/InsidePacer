@@ -2,7 +2,8 @@ package app.insidepacer.ui.quick
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
@@ -17,7 +18,6 @@ import app.insidepacer.domain.Segment
 import app.insidepacer.domain.SessionState
 import app.insidepacer.engine.CuePlayer
 import app.insidepacer.engine.SessionScheduler
-import kotlinx.coroutines.launch
 import java.util.Locale
 
 private fun hms(total: Int): String {
@@ -28,13 +28,12 @@ private fun hms(total: Int): String {
     else String.format(Locale.getDefault(), "%d:%02d", m, s)
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickSessionScreen(onEditSpeeds: () -> Unit) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepo(ctx) }
     val speeds by repo.speeds.collectAsState(initial = emptyList())
-    val scope = rememberCoroutineScope()
 
     val cue = remember { CuePlayer(ctx) }
     DisposableEffect(Unit) { onDispose { cue.release() } }
@@ -45,64 +44,81 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit) {
     var secsText by remember { mutableStateOf("60") }
     val segments = remember { mutableStateListOf<Segment>() }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Quick session", style = MaterialTheme.typography.headlineSmall)
-        if (speeds.isEmpty()) {
+    Scaffold(
+        topBar = { CenterAlignedTopAppBar(title = { Text("InsidePacer") }) }
+    ) { inner ->
+        Column(Modifier.padding(inner).padding(16.dp).fillMaxSize()) {
+            Text("Quick session", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(8.dp))
-            Text("Add at least one speed to get started.")
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = onEditSpeeds) { Text("Add speeds") }
-            return@Column
-        }
 
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // simple speed picker (buttons)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                speeds.forEach { sp ->
-                    FilterChip(selected = selected == sp, onClick = { selected = sp }, label = { Text(String.format(Locale.getDefault(), "%.1f", sp)) })
+            if (speeds.isEmpty()) {
+                Text("No saved speeds.")
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onEditSpeeds) { Text("Add speeds") }
+                return@Column
+            }
+
+            Text("Pick a speed:")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                items(speeds) { sp ->
+                    FilterChip(
+                        selected = selected == sp,
+                        onClick = { selected = sp },
+                        label = { Text(String.format(Locale.getDefault(), "%.1f", sp)) }
+                    )
                 }
             }
-        }
 
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = secsText,
-            onValueChange = { secsText = it.filter { ch -> ch.isDigit() } },
-            label = { Text("Seconds") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.width(140.dp)
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {
-                val sp = selected; val secs = secsText.toIntOrNull();
-                if (sp != null && secs != null && secs > 0) segments += Segment(sp, secs)
-            }) { Text("Add segment") }
-            OutlinedButton(onClick = { if (segments.isNotEmpty()) segments.removeLast() }) { Text("Remove last") }
-            OutlinedButton(onClick = { segments.clear() }) { Text("Clear all") }
-        }
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = secsText,
+                onValueChange = { secsText = it.filter { ch -> ch.isDigit() } },
+                label = { Text("Seconds") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.width(160.dp)
+            )
 
-        Spacer(Modifier.height(12.dp))
-        Text("Segments (${segments.size})")
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            itemsIndexed(segments) { idx, seg ->
-                ListItem(headlineContent = { Text("#${idx + 1}  ${seg.speed}  •  ${seg.seconds}s") })
-                HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-            }
-        }
-
-        val isRunning = state.active
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            Text("Speed: ${state.speed}")
-            Text("Next in: ${hms(state.nextChangeInSec)}")
-            Text("Elapsed: ${hms(state.elapsedSec)}")
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { if (segments.isNotEmpty()) scheduler.start(segments.toList()) }, enabled = !isRunning && segments.isNotEmpty()) { Text("Start") }
-                OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
-                TextButton(onClick = onEditSpeeds) { Text("Edit speeds") }
+                val canAdd = selected != null && secsText.toIntOrNull()?.let { it > 0 } == true
+                Button(onClick = {
+                    val sp = selected!!
+                    val secs = secsText.toInt()
+                    segments += Segment(sp, secs)
+                }, enabled = canAdd) { Text("Add segment") }
+
+                OutlinedButton(onClick = { if (segments.isNotEmpty()) segments.removeLast() }, enabled = segments.isNotEmpty()) {
+                    Text("Remove last")
+                }
+                OutlinedButton(onClick = { segments.clear() }, enabled = segments.isNotEmpty()) {
+                    Text("Clear all")
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Text("Segments (${segments.size})")
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(segments) { seg ->
+                    ListItem(headlineContent = { Text("${seg.speed} • ${seg.seconds}s") })
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+                }
+            }
+
+            val isRunning = state.active
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text("Speed: ${state.speed}")
+                Text("Next in: ${hms(state.nextChangeInSec)}")
+                Text("Elapsed: ${hms(state.elapsedSec)}")
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { if (segments.isNotEmpty()) scheduler.start(segments.toList()) },
+                        enabled = !isRunning && segments.isNotEmpty()
+                    ) { Text("Start") }
+                    OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
+                    TextButton(onClick = onEditSpeeds) { Text("Edit speeds") }
+                }
             }
         }
     }
