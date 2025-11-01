@@ -60,7 +60,7 @@ private fun hms(total: Int): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit) {
+fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit, onOpenTemplates: () -> Unit) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepo(ctx) }
     val speeds by repo.speeds.collectAsState(initial = emptyList())
@@ -172,6 +172,7 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit) {
                     OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
                     TextButton(onClick = onEditSpeeds) { Text("Edit speeds") }
                     TextButton(onClick = onOpenHistory) { Text("History") }
+                    TextButton(onClick = onOpenTemplates) { Text("Templates") }
                 }
             }
         }

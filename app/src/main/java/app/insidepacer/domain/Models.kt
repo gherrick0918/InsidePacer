@@ -21,3 +21,10 @@ data class SessionLog(
     val segments: List<Segment>,
     val aborted: Boolean
 )
+
+@kotlinx.serialization.Serializable
+data class Template(
+    val id: String,
+    val name: String,
+    val segments: List<Segment>
+)

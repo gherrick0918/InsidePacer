@@ -18,6 +18,8 @@ import app.insidepacer.domain.SessionLog
 import kotlinx.serialization.json.Json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import app.insidepacer.ui.templates.TemplatesListScreen
+import app.insidepacer.ui.templates.TemplateEditorScreen
 
 @Composable
 fun AppNav() {
@@ -35,18 +37,29 @@ fun AppNav() {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         }
 
-        composable("onboarding") {
-            SpeedsScreen(onContinue = { nav.navigate("quick") { popUpTo("onboarding") { inclusive = true } } })
-        }
+        composable("onboarding") { SpeedsScreen(onContinue = { nav.navigate("quick") { popUpTo("onboarding") { inclusive = true } } }) }
 
         composable("quick") {
             QuickSessionScreen(
                 onEditSpeeds = { nav.navigate("onboarding") },
-                onOpenHistory = { nav.navigate("history") }
+                onOpenHistory = { nav.navigate("history") },
+                onOpenTemplates = { nav.navigate("templates") }
             )
         }
 
-        // History list
+        // Templates list and editor
+        composable("templates") {
+            TemplatesListScreen(onBack = { nav.popBackStack() }, onNew = { nav.navigate("templateEditor") }, onEdit = { id -> nav.navigate("templateEditor?tid=${id}") })
+        }
+        composable(
+            route = "templateEditor?tid={tid}",
+            arguments = listOf(navArgument("tid") { type = NavType.StringType; nullable = true; defaultValue = null })
+        ) { entry ->
+            val tid = entry.arguments?.getString("tid")
+            TemplateEditorScreen(templateId = tid, onBack = { nav.popBackStack() })
+        }
+
+        // History routes (unchanged)
         composable("history") {
             HistoryScreen(
                 onBack = { nav.popBackStack() },
@@ -57,8 +70,6 @@ fun AppNav() {
                 }
             )
         }
-
-        // History detail (pass serialized log)
         composable(
             route = "historyDetail/{log}",
             arguments = listOf(navArgument("log"){ type = NavType.StringType })
