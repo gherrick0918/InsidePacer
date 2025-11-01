@@ -2,36 +2,48 @@ package app.insidepacer.ui
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.domain.SessionLog
+import app.insidepacer.ui.components.RpgBackground
 import app.insidepacer.ui.history.HistoryDetailScreen
 import app.insidepacer.ui.history.HistoryScreen
 import app.insidepacer.ui.navigation.Destination
@@ -40,6 +52,7 @@ import app.insidepacer.ui.quick.QuickSessionScreen
 import app.insidepacer.ui.templates.TemplateEditorScreen
 import app.insidepacer.ui.templates.TemplatesListScreen
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,72 +68,117 @@ fun AppNav() {
         Destination.Templates,
         Destination.History
     )
-    val homeIcons = mapOf(
-        Destination.Quick to Icons.Default.PlayArrow,
-        Destination.Templates to Icons.AutoMirrored.Filled.ListAlt,
-        Destination.History to Icons.Default.History
-    )
 
     val currentScreenTitle = when (currentRoute) {
-        Destination.Quick.route -> "Quick Session"
-        Destination.Templates.route -> "Templates"
-        Destination.TemplateEditor.route -> "Edit Template"
-        Destination.History.route -> "History"
-        Destination.HistoryDetail.route -> "Session Details"
+        Destination.Quick.route -> "Quick Quest"
+        Destination.Templates.route -> "Training Tomes"
+        Destination.TemplateEditor.route -> "Edit Training Tome"
+        Destination.History.route -> "Run Ledger"
+        Destination.HistoryDetail.route -> "Session Chronicle"
+        Destination.Onboarding.route -> "Pace Registry"
         else -> "InsidePacer"
     }
     val showBackArrow = currentRoute in listOf(
         Destination.TemplateEditor.route,
         Destination.HistoryDetail.route
     )
+    val showDrawerIcon = !showBackArrow && currentRoute != Destination.Onboarding.route &&
+        currentRoute != Destination.Gate.route && currentRoute != null
 
-    Scaffold(
-        topBar = {
-            // Onboarding has its own separate top bar
-            if (currentRoute != Destination.Onboarding.route) {
-                TopAppBar(
-                    title = { Text(currentScreenTitle) },
-                    navigationIcon = {
-                        if (showBackArrow) {
-                            IconButton(onClick = { nav.popBackStack() }) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back"
-                                )
-                            }
-                        }
-                    }
-                )
-            }
-        },
-        bottomBar = {
-            if (homeDestinations.any { it.route == currentRoute }) {
-                NavigationBar {
-                    homeDestinations.forEach { destination ->
-                        val selected = currentRoute == destination.route
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = { nav.navigate(destination.route) },
-                            icon = {
-                                homeIcons[destination]?.let {
-                                    Icon(
-                                        it,
-                                        contentDescription = null
-                                    )
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = homeDestinations.any { it.route == currentRoute },
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("InsidePacer", style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        "Pacekeeper's Guild Ledger",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+                homeDestinations.forEach { destination ->
+                    val selected = currentRoute == destination.route
+                    NavigationDrawerItem(
+                        label = { Text(drawerLabelFor(destination)) },
+                        icon = {
+                            Icon(
+                                when (destination) {
+                                    Destination.Quick -> Icons.Default.PlayArrow
+                                    Destination.Templates -> Icons.AutoMirrored.Filled.ListAlt
+                                    Destination.History -> Icons.Default.History
+                                    else -> Icons.Default.PlayArrow
+                                },
+                                contentDescription = null
+                            )
+                        },
+                        selected = selected,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            if (!selected) {
+                                nav.navigate(destination.route) {
+                                    popUpTo(Destination.Quick.route) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                            },
-                            label = { Text(destination.route.replaceFirstChar { it.uppercase() }) }
-                        )
-                    }
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
                 }
             }
         }
-    ) { innerPadding ->
-        NavHost(
-            navController = nav,
-            startDestination = Destination.Gate.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
+    ) {
+        Scaffold(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            topBar = {
+                if (currentRoute != Destination.Gate.route) {
+                    TopAppBar(
+                        title = { Text(currentScreenTitle) },
+                        navigationIcon = {
+                            when {
+                                showBackArrow -> {
+                                    IconButton(onClick = { nav.popBackStack() }) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = "Back"
+                                        )
+                                    }
+                                }
+
+                                showDrawerIcon -> {
+                                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                    }
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                            titleContentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                }
+            }
+        ) { innerPadding ->
+            RpgBackground {
+                Box(Modifier.padding(innerPadding)) {
+                    NavHost(
+                        navController = nav,
+                        startDestination = Destination.Gate.route,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
             composable(Destination.Gate.route) {
                 val context = LocalContext.current
                 val repo = remember { SettingsRepo(context) }
@@ -135,15 +193,9 @@ fun AppNav() {
             }
 
             composable(Destination.Onboarding.route) {
-                Scaffold(
-                    topBar = { TopAppBar(title = { Text("Set Your Speeds") }) }
-                ) { padding ->
-                    Box(Modifier.padding(padding)) {
-                        SpeedsScreen(onContinue = {
-                            nav.navigate(Destination.Quick.route) { popUpTo(Destination.Onboarding.route) { inclusive = true } }
-                        })
-                    }
-                }
+                SpeedsScreen(onContinue = {
+                    nav.navigate(Destination.Quick.route) { popUpTo(Destination.Onboarding.route) { inclusive = true } }
+                })
             }
 
             composable(Destination.Quick.route) {
@@ -181,4 +233,12 @@ fun AppNav() {
             }
         }
     }
+    }
+}
+
+private fun drawerLabelFor(destination: Destination) = when (destination) {
+    Destination.Quick -> "Quick Quest"
+    Destination.Templates -> "Training Tomes"
+    Destination.History -> "Run Ledger"
+    else -> destination.route.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }
