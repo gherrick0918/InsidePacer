@@ -179,64 +179,66 @@ fun AppNav() {
                         startDestination = Destination.Gate.route,
                         modifier = Modifier.fillMaxSize()
                     ) {
-            composable(Destination.Gate.route) {
-                val context = LocalContext.current
-                val repo = remember { SettingsRepo(context) }
-                LaunchedEffect(Unit) {
-                    val speeds = repo.speeds.first()
-                    val dest = if (speeds.isEmpty()) Destination.Onboarding.route else Destination.Quick.route
-                    nav.navigate(dest) { popUpTo(Destination.Gate.route) { inclusive = true } }
+                        composable(Destination.Gate.route) {
+                            val context = LocalContext.current
+                            val repo = remember { SettingsRepo(context) }
+                            LaunchedEffect(Unit) {
+                                val speeds = repo.speeds.first()
+                                val dest = if (speeds.isEmpty()) Destination.Onboarding.route else Destination.Quick.route
+                                nav.navigate(dest) { popUpTo(Destination.Gate.route) { inclusive = true } }
+                            }
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
+                        }
+
+                        composable(Destination.Onboarding.route) {
+                            SpeedsScreen(onContinue = {
+                                nav.navigate(Destination.Quick.route) { popUpTo(Destination.Onboarding.route) { inclusive = true } }
+                            })
+                        }
+
+                        composable(Destination.Quick.route) {
+                            QuickSessionScreen(onEditSpeeds = { nav.navigate(Destination.Onboarding.route) })
+                        }
+
+                        composable(Destination.Templates.route) {
+                            TemplatesListScreen(
+                                onNew = { nav.navigate(Destination.TemplateEditor.route) },
+                                onEdit = { id -> nav.navigate(Destination.TemplateEditor.buildRoute(id)) }
+                            )
+                        }
+
+                        composable(
+                            route = Destination.TemplateEditor.route,
+                            arguments = Destination.TemplateEditor.arguments
+                        ) { entry ->
+                            val tid = entry.arguments?.getString("tid")
+                            TemplateEditorScreen(templateId = tid, onBack = { nav.popBackStack() })
+                        }
+
+                        composable(Destination.History.route) {
+                            HistoryScreen(
+                                onOpen = { log -> nav.navigate(Destination.HistoryDetail.buildRoute(log)) }
+                            )
+                        }
+
+                        composable(
+                            route = Destination.HistoryDetail.route,
+                            arguments = Destination.HistoryDetail.arguments
+                        ) { entry ->
+                            val raw = entry.arguments?.getString("log").orEmpty()
+                            val log = Json.decodeFromString(SessionLog.serializer(), java.net.URLDecoder.decode(raw, "UTF-8"))
+                            HistoryDetailScreen(log = log, onBack = { nav.popBackStack() })
+                        }
+                    }
                 }
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            composable(Destination.Onboarding.route) {
-                SpeedsScreen(onContinue = {
-                    nav.navigate(Destination.Quick.route) { popUpTo(Destination.Onboarding.route) { inclusive = true } }
-                })
-            }
-
-            composable(Destination.Quick.route) {
-                QuickSessionScreen(onEditSpeeds = { nav.navigate(Destination.Onboarding.route) })
-            }
-
-            composable(Destination.Templates.route) {
-                TemplatesListScreen(
-                    onNew = { nav.navigate(Destination.TemplateEditor.route) },
-                    onEdit = { id -> nav.navigate(Destination.TemplateEditor.buildRoute(id)) }
-                )
-            }
-
-            composable(
-                route = Destination.TemplateEditor.route,
-                arguments = Destination.TemplateEditor.arguments
-            ) { entry ->
-                val tid = entry.arguments?.getString("tid")
-                TemplateEditorScreen(templateId = tid, onBack = { nav.popBackStack() })
-            }
-
-            composable(Destination.History.route) {
-                HistoryScreen(
-                    onOpen = { log -> nav.navigate(Destination.HistoryDetail.buildRoute(log)) }
-                )
-            }
-
-            composable(
-                route = Destination.HistoryDetail.route,
-                arguments = Destination.HistoryDetail.arguments
-            ) { entry ->
-                val raw = entry.arguments?.getString("log").orEmpty()
-                val log = Json.decodeFromString(SessionLog.serializer(), java.net.URLDecoder.decode(raw, "UTF-8"))
-                HistoryDetailScreen(log = log, onBack = { nav.popBackStack() })
             }
         }
     }
-    }
 }
 
-private fun drawerLabelFor(destination: Destination) = when (destination) {
+fun drawerLabelFor(destination: Destination) = when (destination) {
     Destination.Quick -> "Quick Quest"
     Destination.Templates -> "Training Tomes"
     Destination.History -> "Run Ledger"
