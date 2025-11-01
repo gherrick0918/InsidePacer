@@ -1,5 +1,7 @@
 package app.insidepacer.ui.quick
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,7 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -33,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,10 +43,11 @@ import androidx.compose.ui.unit.dp
 import app.insidepacer.data.SessionRepo
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.domain.Segment
-import app.insidepacer.domain.SessionLog
 import app.insidepacer.domain.SessionState
 import app.insidepacer.engine.CuePlayer
 import app.insidepacer.engine.SessionScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -58,12 +59,17 @@ private fun hms(total: Int): String {
     else String.format(Locale.getDefault(), "%d:%02d", m, s)
 }
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit, onOpenTemplates: () -> Unit) {
+fun QuickSessionScreen(
+    onEditSpeeds: () -> Unit,
+) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepo(ctx) }
     val speeds by repo.speeds.collectAsState(initial = emptyList())
+    val appCtx = ctx.applicationContext
+    val sessionRepo = remember { SessionRepo(appCtx) }
 
     val cue = remember { CuePlayer(ctx) }
     DisposableEffect(Unit) { onDispose { cue.release() } }
@@ -74,64 +80,50 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit, onOp
     var secsText by remember { mutableStateOf("60") }
     val segments = remember { mutableStateListOf<Segment>() }
 
-    val sessionRepo = remember { SessionRepo(ctx) }
-    val scope = rememberCoroutineScope()
-
     Scaffold(
-        topBar = { CenterAlignedTopAppBar(title = { Text("InsidePacer") }) }
-    ) { inner ->
-        Column(Modifier.padding(inner).padding(16.dp).fillMaxSize()) {
-            Text("Quick session", style = MaterialTheme.typography.headlineSmall)
-            Spacer(Modifier.height(8.dp))
-
-            if (speeds.isEmpty()) {
-                Text("No saved speeds.")
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = onEditSpeeds) { Text("Add speeds") }
-                return@Column
-            }
-
-            Text("Pick a speed:")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                items(speeds) { sp ->
-                    FilterChip(
-                        selected = selected == sp,
-                        onClick = { selected = sp },
-                        label = { Text(String.format(Locale.getDefault(), "%.1f", sp)) }
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = secsText,
-                onValueChange = { secsText = it.filter { ch -> ch.isDigit() } },
-                label = { Text("Seconds") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(160.dp)
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Quick Session") },
             )
-
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val canAdd = selected != null && secsText.toIntOrNull()?.let { it > 0 } == true
-                Button(onClick = {
-                    val sp = selected!!
-                    val secs = secsText.toInt()
-                    segments += Segment(sp, secs)
-                }, enabled = canAdd) { Text("Add segment") }
-
-                OutlinedButton(onClick = { if (segments.isNotEmpty()) segments.removeLast() }, enabled = segments.isNotEmpty()) {
-                    Text("Remove last")
+        }
+    ) { innerPadding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(innerPadding)) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                Text("Pick a speed:")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    items(speeds) { sp ->
+                        FilterChip(selected = selected == sp, onClick = { selected = sp },
+                            label = { Text(String.format(Locale.getDefault(), "%.1f", sp)) })
+                    }
                 }
-                OutlinedButton(onClick = { segments.clear() }, enabled = segments.isNotEmpty()) {
-                    Text("Clear all")
+
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = secsText,
+                    onValueChange = { secsText = it.filter { ch -> ch.isDigit() } },
+                    label = { Text("Seconds") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.width(160.dp)
+                )
+
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val canAdd = selected != null && secsText.toIntOrNull()?.let { it > 0 } == true
+                    Button(onClick = { segments += Segment(selected!!, secsText.toInt()) }, enabled = canAdd) { Text("Add segment") }
+                    OutlinedButton(onClick = { if (segments.isNotEmpty()) segments.removeLast() }, enabled = segments.isNotEmpty()) { Text("Remove last") }
+                    OutlinedButton(onClick = { segments.clear() }, enabled = segments.isNotEmpty()) { Text("Clear all") }
                 }
+
+                Spacer(Modifier.height(12.dp))
+                Text("Segments (${segments.size})")
             }
-
-            Spacer(Modifier.height(12.dp))
-            Text("Segments (${segments.size})")
-            LazyColumn(modifier = Modifier.weight(1f)) {
+            LazyColumn(modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 16.dp)) {
                 items(segments) { seg ->
                     ListItem(headlineContent = { Text("${seg.speed} • ${seg.seconds}s") })
                     HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
@@ -139,7 +131,11 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit, onOp
             }
 
             val isRunning = state.active
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
                 Text("Speed: ${state.speed}")
                 Text("Next in: ${hms(state.nextChangeInSec)}")
                 Text("Elapsed: ${hms(state.elapsedSec)}")
@@ -151,7 +147,7 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit, onOp
                                 val plan = segments.toList()
                                 scheduler.start(plan) { startMs, endMs, elapsedSec, aborted ->
                                     val realized = sessionRepo.realizedSegments(plan, elapsedSec)
-                                    val log = SessionLog(
+                                    val log = app.insidepacer.domain.SessionLog(
                                         id = "sess_${startMs}",
                                         startMillis = startMs,
                                         endMillis = endMs,
@@ -159,17 +155,22 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit, onOp
                                         segments = realized,
                                         aborted = aborted
                                     )
-                                    // fire-and-forget append on main-safe scope
-                                    scope.launch {
-                                        sessionRepo.append(log)
+                                    // not tied to the Composable/lifecycle -> always executes
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        try {
+                                            sessionRepo.append(log)
+                                        } catch (_: Throwable) { /* no-op */
+                                        }
                                     }
                                 }
                             }
                         },
                         enabled = !isRunning && segments.isNotEmpty()
                     ) { Text("Start") }
-
                     OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
+                }
+                Row {
+                    TextButton(onClick = onEditSpeeds) { Text("Edit speeds") }
                 }
             }
         }
