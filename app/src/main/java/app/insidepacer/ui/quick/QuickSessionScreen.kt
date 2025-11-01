@@ -170,9 +170,6 @@ fun QuickSessionScreen(onEditSpeeds: () -> Unit, onOpenHistory: () -> Unit, onOp
                     ) { Text("Start") }
 
                     OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
-                    TextButton(onClick = onEditSpeeds) { Text("Edit speeds") }
-                    TextButton(onClick = onOpenHistory) { Text("History") }
-                    TextButton(onClick = onOpenTemplates) { Text("Templates") }
                 }
             }
         }
