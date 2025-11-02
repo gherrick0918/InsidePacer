@@ -2,13 +2,37 @@ package app.insidepacer.ui.programs
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,7 +48,7 @@ import java.time.LocalDate
 fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
     val ctx = LocalContext.current
     val repo = remember { ProgramRepo(ctx) }
-    val progressRepo = remember { ProgramProgressRepo(ctx) }
+    val progressRepo = remember { ProgramProgressRepo.getInstance(ctx) }
     val prefs = remember { ProgramPrefs(ctx) }
     val templateRepo = remember { TemplateRepo(ctx) }
 
@@ -36,13 +60,14 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
         })
     }
 
-    var name by remember { mutableStateOf(program.name) }
-    var weeksText by remember { mutableStateOf(program.weeks.toString()) }
+    var name by remember(program.name) { mutableStateOf(program.name) }
+    var weeksText by remember(program.weeks) { mutableStateOf(program.weeks.toString()) }
     var showPickerForIndex by remember { mutableStateOf<Int?>(null) }
 
     val activeId by prefs.activeProgramId.collectAsState(initial = null)
+    val progress by progressRepo.progress.collectAsState()
 
-    fun saveNow(updated: Program = program) {
+    fun saveNow(updated: Program) {
         program = updated
         repo.save(updated)
     }
@@ -50,7 +75,11 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { saveNow(program.copy(name = name)); onDone() }) { Text("Save") }
+            TextButton(onClick = {
+                val weeks = weeksText.toIntOrNull() ?: program.weeks
+                saveNow(program.copy(name = name, weeks = weeks))
+                onDone()
+            }) { Text("Save") }
         }
 
         OutlinedTextField(name, { name = it }, label = { Text("Program name") }, modifier = Modifier.fillMaxWidth())
@@ -66,9 +95,8 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
         Spacer(Modifier.height(12.dp))
 
         val weeks = weeksText.toIntOrNull() ?: program.weeks
-        // Expand/contract grid if weeks changed
         LaunchedEffect(weeks) {
-            if (weeks != program.weeks) {
+            if (weeks != program.weeks && weeks > 0) {
                 val newGrid = List(weeks) { w ->
                     if (w < program.grid.size) program.grid[w]
                     else List(program.daysPerWeek) { null as String? }
@@ -77,42 +105,58 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             }
         }
 
-        val cells = program.weeks * program.daysPerWeek
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(program.daysPerWeek),
-            modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            itemsIndexed((0 until cells).toList()) { idx, _ ->
-                val w = idx / program.daysPerWeek
-                val d = idx % program.daysPerWeek
-                val tid = program.grid[w][d]
-                val label = when (tid) {
-                    null -> "Rest"
-                    else -> templateRepo.get(tid)?.name ?: "?"
-                }
-                val epochDay = program.startEpochDay + idx
-                val done = progressRepo.isDone(program.id, epochDay)
+        val programProgress = progress.firstOrNull { it.programId == program.id }
 
-                Surface(
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    tonalElevation = 0.dp,
-                    modifier = Modifier
-                        .height(48.dp)
-                        .clickable { showPickerForIndex = idx }
-                ) {
-                    Box(Modifier.fillMaxSize().padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("W${w + 1}D${d + 1}")
-                            HorizontalDivider(
-                                modifier = Modifier.height(18.dp).width(1.dp),
-                                thickness = DividerDefaults.Thickness,
-                                color = DividerDefaults.color
-                            )
-                            Text(label, softWrap = false)
-                            if (done) {
-                                Text("  ✓")
+        val cells = program.weeks * program.daysPerWeek
+        if (cells > 0) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(program.daysPerWeek),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                itemsIndexed((0 until cells).toList()) { idx, _ ->
+                    val w = idx / program.daysPerWeek
+                    val d = idx % program.daysPerWeek
+                    val tid = program.grid.getOrNull(w)?.getOrNull(d)
+                    val label = when (tid) {
+                        null -> "Rest"
+                        else -> templateRepo.get(tid)?.name ?: "?"
+                    }
+                    val epochDay = program.startEpochDay + idx
+                    val done = programProgress?.doneEpochDays?.contains(epochDay) == true
+
+                    val color = when {
+                        done -> MaterialTheme.colorScheme.tertiaryContainer
+                        tid != null -> MaterialTheme.colorScheme.secondaryContainer
+                        else -> MaterialTheme.colorScheme.surface
+                    }
+
+                    Surface(
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        color = color,
+                        modifier = Modifier
+                            .height(48.dp)
+                            .clickable { showPickerForIndex = idx }
+                    ) {
+                        Box(Modifier.fillMaxSize().padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("W${w + 1}D${d + 1}")
+                                HorizontalDivider(
+                                    modifier = Modifier
+                                        .height(18.dp)
+                                        .width(1.dp),
+                                    thickness = DividerDefaults.Thickness,
+                                    color = DividerDefaults.color
+                                )
+                                Text(label, softWrap = false, maxLines = 1)
+                                if (done) {
+                                    Spacer(Modifier.weight(1f))
+                                    Icon(Icons.Default.Check, contentDescription = "Completed")
+                                }
                             }
                         }
                     }
@@ -123,7 +167,6 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
         Text("Active: ${if (program.id == activeId) "yes" else "no"}  •  Start: ${program.startEpochDay}")
     }
 
-    // Dialog
     if (showPickerForIndex != null) {
         TemplatePickerDialog(
             onDismiss = { showPickerForIndex = null },
@@ -131,11 +174,19 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
                 val idx = showPickerForIndex!!
                 val w = idx / program.daysPerWeek
                 val d = idx % program.daysPerWeek
-                val newRow = program.grid[w].toMutableList()
+
+                val currentGrid = program.grid
+                val newGrid = if (w >= currentGrid.size) {
+                    currentGrid.plus(List(w - currentGrid.size + 1) { List(program.daysPerWeek) { null } })
+                } else {
+                    currentGrid
+                }
+
+                val newRow = newGrid[w].toMutableList()
                 newRow[d] = chosenId
-                val newGrid = program.grid.toMutableList()
-                newGrid[w] = newRow
-                saveNow(program.copy(grid = newGrid))
+                val finalGrid = newGrid.toMutableList()
+                finalGrid[w] = newRow
+                saveNow(program.copy(grid = finalGrid))
                 showPickerForIndex = null
             }
         )

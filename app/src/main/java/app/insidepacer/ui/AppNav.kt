@@ -135,10 +135,11 @@ fun AppNav() {
                         onClick = {
                             scope.launch { drawerState.close() }
                             if (!selected) {
+                                // Drawer click handler — anchor at graph start & don't restore prior tab
                                 nav.navigate(destination.route) {
-                                    popUpTo(Destination.Quick.route) { saveState = true }
+                                    popUpTo(nav.graph.startDestinationId) { saveState = true }
                                     launchSingleTop = true
-                                    restoreState = true
+                                    restoreState = false
                                 }
                             }
                         },

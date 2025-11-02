@@ -1,14 +1,37 @@
 package app.insidepacer.ui.programs
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import app.insidepacer.data.*
-import app.insidepacer.domain.*
+import app.insidepacer.data.ProgramPrefs
+import app.insidepacer.data.ProgramProgressRepo
+import app.insidepacer.data.ProgramRepo
+import app.insidepacer.data.SessionRepo
+import app.insidepacer.data.TemplateRepo
+import app.insidepacer.domain.SessionLog
+import app.insidepacer.domain.SessionState
 import app.insidepacer.engine.CuePlayer
 import app.insidepacer.engine.SessionScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -29,13 +52,18 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
     val prefs = remember { ProgramPrefs(ctx) }
     val repo = remember { ProgramRepo(ctx) }
     val tplRepo = remember { TemplateRepo(ctx) }
-    val progRepo = remember { ProgramProgressRepo(ctx) }
+    val progRepo = remember { ProgramProgressRepo.getInstance(ctx) }
     val sessionRepo = remember { SessionRepo(ctx.applicationContext) }
 
     val activeId by prefs.activeProgramId.collectAsState(initial = null)
     val program = remember(activeId) { activeId?.let { repo.get(it) } }
     val today = LocalDate.now().toEpochDay()
     val dayIndex = program?.let { (today - it.startEpochDay).toInt() } ?: null
+
+    val progress by progRepo.progress.collectAsState()
+    val isDone = if (program != null && dayIndex != null) {
+        progress.firstOrNull { it.programId == program.id }?.doneEpochDays?.contains(program.startEpochDay + dayIndex) == true
+    } else false
 
     val cue = remember { CuePlayer(ctx) }
     DisposableEffect(Unit) { onDispose { cue.release() } }
@@ -59,12 +87,18 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
             val d = dayIndex % program.daysPerWeek
             val tid = program.grid[w][d]
             val epochDay = program.startEpochDay + dayIndex
-            val isDone = remember(program.id, epochDay) { progRepo.isDone(program.id, epochDay) }
             val tmplName = tid?.let { tplRepo.get(it)?.name } ?: "Rest"
 
             Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Week ${w + 1}, Day ${d + 1}")
-                Text("Assignment: $tmplName")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Assignment: $tmplName")
+                    Spacer(Modifier.width(8.dp))
+                    if (isDone) {
+                        AssistChip(onClick = {}, label = { Text("Completed") },
+                            leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) })
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 Text("Speed: ${state.speed}")
                 Text("Next in: ${hms(state.nextChangeInSec)}")
@@ -78,7 +112,6 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                             val segments = tplRepo.get(tid)?.segments ?: emptyList()
                             if (segments.isEmpty()) return@Button
                             // Start + onFinish append to history and mark done
-                            val startMs = System.currentTimeMillis()
                             scheduler.start(segments) { sMs, eMs, elapsedSec, aborted ->
                                 val realized = sessionRepo.realizedSegments(segments, elapsedSec)
                                 val log = SessionLog(
@@ -91,17 +124,14 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                                 )
                                 CoroutineScope(Dispatchers.IO).launch {
                                     try { sessionRepo.append(log) } catch (_: Throwable) {}
-                                    if (!aborted) progRepo.markDone(program.id, epochDay)
+                                    if (!aborted) {
+                                        progRepo.markDone(program.id, epochDay)
+                                    }
                                 }
                             }
                         },
                         enabled = !running && tid != null
-                    ) { Text("Run today") }
-
-                    OutlinedButton(
-                        onClick = { CoroutineScope(Dispatchers.IO).launch { progRepo.clearDone(program.id, epochDay) } },
-                        enabled = isDone
-                    ) { Text("Mark undone") }
+                    ) { Text(if (isDone) "Run again" else "Run today") }
                 }
 
                 if (tid == null) {
