@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +25,7 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
     val ctx = LocalContext.current
     val repo = remember { ProgramRepo(ctx) }
     val prefs = remember { ProgramPrefs(ctx) }
-    val progressRepo = remember { ProgramProgressRepo(ctx) }
+    val progressRepo = remember { ProgramProgressRepo.getInstance(ctx) }
     val tplRepo = remember { TemplateRepo(ctx) }
 
     var program by remember(programId) {
@@ -73,11 +74,11 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             TextButton(onClick = { saveNow(program.copy(name = name)); onDone() }) { Text("Save") }
         }
 
-        OutlinedTextField(name, { name = it }, label = { Text("Program name") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(name, { value -> name = value }, label = { Text("Program name") }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                weeksText, { weeksText = it.filter { ch -> ch.isDigit() } },
+                weeksText, { value -> weeksText = value.filter { ch -> ch.isDigit() } },
                 label = { Text("Weeks") }, modifier = Modifier.width(140.dp)
             )
             Spacer(Modifier.width(16.dp))
@@ -149,7 +150,11 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
                     Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("D${d + 1}")
-                            Divider(Modifier.height(18.dp).width(1.dp))
+                            HorizontalDivider(
+                                Modifier.height(18.dp).width(1.dp),
+                                DividerDefaults.Thickness,
+                                DividerDefaults.color
+                            )
                             Text(label, softWrap = false)
                             if (done) Text(" ✓")
                             Spacer(Modifier.width(8.dp))

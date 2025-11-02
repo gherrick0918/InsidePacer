@@ -1,14 +1,13 @@
 package app.insidepacer.data
 
 import android.content.Context
-import kotlinx.serialization.Serializable
+import app.insidepacer.domain.Program
 import java.io.File
 import java.time.LocalDate
-import java.util.Locale
 
 class ProgramExport(private val ctx: Context) {
     private val tplRepo = TemplateRepo(ctx)
-    private val progress = ProgramProgressRepo(ctx)
+    private val progress = ProgramProgressRepo.getInstance(ctx)
 
     /** Writes program_{id}.csv into app files dir and returns the File. */
     fun exportCsv(program: Program): File {
