@@ -2,12 +2,13 @@ package app.insidepacer.ui.programs
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,7 +86,12 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             // Week picker (0..weeks-1)
             Text("Week:")
             Spacer(Modifier.width(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 repeat(weeks) { w ->
                     FilterChip(
                         selected = selectedWeek == w,
@@ -125,7 +131,9 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
         val dayOffset = selectedWeek * program.daysPerWeek
         LazyVerticalGrid(
             columns = GridCells.Fixed(program.daysPerWeek),
-            modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 420.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -140,23 +148,33 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
                 val epochDay = program.startEpochDay + idx
                 val done = progressRepo.isDone(program.id, epochDay)
 
+                val color = when {
+                    done -> MaterialTheme.colorScheme.tertiaryContainer
+                    tid != null -> MaterialTheme.colorScheme.secondaryContainer
+                    else -> MaterialTheme.colorScheme.surfaceTint
+                }
+
                 Surface(
+                    color = color,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     tonalElevation = 0.dp,
                     modifier = Modifier
                         .height(56.dp)
                         .clickable { showPickerForIndex = idx }
                 ) {
-                    Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("D${d + 1}")
                             HorizontalDivider(
-                                Modifier.height(18.dp).width(1.dp),
-                                DividerDefaults.Thickness,
-                                DividerDefaults.color
+                                Modifier
+                                    .height(18.dp)
+                                    .width(1.dp)
                             )
                             Text(label, softWrap = false)
-                            if (done) Text(" ✓")
+                            // This is now indicated by color
                             Spacer(Modifier.width(8.dp))
                             // overflow menu trigger
                             var expanded by remember { mutableStateOf(false) }

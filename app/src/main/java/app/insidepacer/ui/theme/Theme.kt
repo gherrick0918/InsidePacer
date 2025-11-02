@@ -37,7 +37,8 @@ fun AppTheme(content: @Composable () -> Unit) {
             outline = TavernGoldDark,
             outlineVariant = TavernGold,
             inverseOnSurface = Midnight,
-            inverseSurface = TavernGold
+            inverseSurface = TavernGold,
+            surfaceTint = RestDark
         )
     } else {
         lightColorScheme(
@@ -56,7 +57,8 @@ fun AppTheme(content: @Composable () -> Unit) {
             outline = AgedCopperDark,
             outlineVariant = AgedCopper,
             inverseOnSurface = ParchmentLight,
-            inverseSurface = DeepForest
+            inverseSurface = DeepForest,
+            surfaceTint = Rest
         )
     }
     if (!view.isInEditMode) {
