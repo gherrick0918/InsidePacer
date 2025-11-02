@@ -48,6 +48,9 @@ import app.insidepacer.ui.history.HistoryDetailScreen
 import app.insidepacer.ui.history.HistoryScreen
 import app.insidepacer.ui.navigation.Destination
 import app.insidepacer.ui.onboarding.SpeedsScreen
+import app.insidepacer.ui.programs.ProgramEditorScreen
+import app.insidepacer.ui.programs.ProgramsListScreen
+import app.insidepacer.ui.programs.TodayScreen
 import app.insidepacer.ui.quick.QuickSessionScreen
 import app.insidepacer.ui.templates.TemplateEditorScreen
 import app.insidepacer.ui.templates.TemplatesListScreen
@@ -66,7 +69,9 @@ fun AppNav() {
     val homeDestinations = listOf(
         Destination.Quick,
         Destination.Templates,
-        Destination.History
+        Destination.History,
+        Destination.Programs,   // NEW
+        Destination.Today       // NEW
     )
 
     val currentScreenTitle = when (currentRoute) {
@@ -76,6 +81,9 @@ fun AppNav() {
         Destination.History.route -> "Run Ledger"
         Destination.HistoryDetail.route -> "Session Chronicle"
         Destination.Onboarding.route -> "Pace Registry"
+        Destination.Programs.route -> "Campaigns"          // NEW
+        Destination.ProgramEditor.route -> "Edit Campaign" // NEW
+        Destination.Today.route -> "Today’s Quest"         // NEW
         else -> "InsidePacer"
     }
     val showBackArrow = currentRoute in listOf(
@@ -231,6 +239,26 @@ fun AppNav() {
                             val log = Json.decodeFromString(SessionLog.serializer(), java.net.URLDecoder.decode(raw, "UTF-8"))
                             HistoryDetailScreen(log = log, onBack = { nav.popBackStack() })
                         }
+
+                        composable(Destination.Programs.route) {
+                            ProgramsListScreen(
+                                onNew = { nav.navigate(Destination.ProgramEditor.route) },
+                                onEdit = { id -> nav.navigate(Destination.ProgramEditor.buildRoute(id)) },
+                                onOpenToday = { nav.navigate(Destination.Today.route) }
+                            )
+                        }
+
+                        composable(
+                            route = Destination.ProgramEditor.route,
+                            arguments = Destination.ProgramEditor.arguments
+                        ) { backStack ->
+                            val pid = backStack.arguments?.getString("pid")
+                            ProgramEditorScreen(programId = pid, onDone = { nav.popBackStack() })
+                        }
+
+                        composable(Destination.Today.route) {
+                            TodayScreen(onOpenPrograms = { nav.navigate(Destination.Programs.route) })
+                        }
                     }
                 }
             }
@@ -242,5 +270,7 @@ fun drawerLabelFor(destination: Destination) = when (destination) {
     Destination.Quick -> "Quick Quest"
     Destination.Templates -> "Training Tomes"
     Destination.History -> "Run Ledger"
+    Destination.Programs -> "Campaigns"     // NEW
+    Destination.Today -> "Today’s Quest"    // NEW
     else -> destination.route.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }

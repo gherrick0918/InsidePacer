@@ -16,6 +16,8 @@ sealed class Destination(val route: String) {
     data object Quick : Destination("quick")
     data object Templates : Destination("templates")
     data object History : Destination("history")
+    data object Programs : Destination("programs")
+    data object Today : Destination("today")
 
     data object TemplateEditor : Destination("templateEditor?tid={tid}") {
         override val arguments = listOf(navArgument("tid") {
@@ -33,5 +35,14 @@ sealed class Destination(val route: String) {
             val arg = URLEncoder.encode(json, StandardCharsets.UTF_8.toString())
             return "historyDetail/$arg"
         }
+    }
+
+    data object ProgramEditor : Destination("programEditor?pid={pid}") {
+        override val arguments = listOf(navArgument("pid") {
+            type = NavType.StringType
+            nullable = true
+            defaultValue = null
+        })
+        fun buildRoute(id: String): String = "programEditor?pid=$id"
     }
 }

@@ -28,3 +28,13 @@ data class Template(
     val name: String,
     val segments: List<Segment>
 )
+
+@kotlinx.serialization.Serializable
+data class Program(
+    val id: String,
+    val name: String,
+    val startEpochDay: Long,    // LocalDate.toEpochDay()
+    val weeks: Int,
+    val daysPerWeek: Int = 7,
+    val grid: List<List<String?>> // templateId or null (Rest)
+)
