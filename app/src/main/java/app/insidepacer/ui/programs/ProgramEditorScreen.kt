@@ -148,10 +148,13 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
                 val epochDay = program.startEpochDay + idx
                 val done = progressRepo.isDone(program.id, epochDay)
 
+                val isWalk = tid != null
                 val color = when {
-                    done -> MaterialTheme.colorScheme.tertiaryContainer
-                    tid != null -> MaterialTheme.colorScheme.secondaryContainer
-                    else -> MaterialTheme.colorScheme.surfaceTint
+                    isWalk && done -> MaterialTheme.colorScheme.tertiaryContainer // Walk Done
+                    isWalk && !done -> MaterialTheme.colorScheme.secondaryContainer // Walk Assigned
+                    !isWalk && done -> MaterialTheme.colorScheme.surface // Rest Done (just a past day)
+                    !isWalk && !done -> MaterialTheme.colorScheme.primary // Rest Assigned
+                    else -> MaterialTheme.colorScheme.surface
                 }
 
                 Surface(
