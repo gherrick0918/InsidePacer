@@ -1,5 +1,6 @@
 package app.insidepacer.ui.programs
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import app.insidepacer.data.ProgramExport
 import app.insidepacer.data.ProgramPrefs
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.ProgramRepo
@@ -82,6 +85,16 @@ fun ProgramsListScreen(
                             Row {
                                 TextButton(onClick = { onEdit(p.id) }) { Text("Edit") }
                                 TextButton(onClick = { scope.launch { prefs.setActiveProgramId(p.id) } }) { Text("Set active") }
+                                TextButton(onClick = {
+                                    val file = ProgramExport(ctx).exportCsv(p)
+                                    val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+                                    val share = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/csv"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    ctx.startActivity(Intent.createChooser(share, "Export program CSV"))
+                                }) { Text("Export") }
                             }
                         }
                     )
