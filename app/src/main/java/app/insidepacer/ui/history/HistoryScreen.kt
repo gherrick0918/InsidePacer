@@ -35,13 +35,17 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import app.insidepacer.data.SessionRepo
 import app.insidepacer.domain.SessionLog
+import app.insidepacer.ui.components.CalendarView
 import app.insidepacer.ui.components.RpgCallout
 import app.insidepacer.ui.components.RpgPanel
 import app.insidepacer.ui.components.RpgSectionHeader
 import app.insidepacer.ui.components.RpgTag
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,8 +59,15 @@ fun HistoryScreen(
     var showConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    var month by remember { mutableStateOf(YearMonth.now()) }
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+
     fun refresh() { items = repo.loadAll().sortedByDescending { it.startMillis } }
     LaunchedEffect(Unit) { refresh() }
+
+    val sessionsByDate = remember(items) {
+        items.groupBy { Instant.ofEpochMilli(it.startMillis).atZone(ZoneId.systemDefault()).toLocalDate() }
+    }
 
     Column(
         Modifier
@@ -97,39 +108,63 @@ fun HistoryScreen(
                 }
             )
 
-            if (items.isEmpty()) {
-                RpgCallout("No journeys recorded yet. Complete a session to populate the ledger.")
-            } else {
-                val sdf = remember { SimpleDateFormat("MMM d, yyyy  h:mm a", Locale.getDefault()) }
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(items) { log ->
-                        val mins = log.totalSeconds / 60
-                        val secs = log.totalSeconds % 60
-                        Surface(
-                            tonalElevation = 1.dp,
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+            CalendarView(
+                month = month,
+                onMonthChanged = { month = it },
+                onDateSelected = { selectedDate = it },
+                dayContent = {
+                    val sessions = sessionsByDate[it]
+                    if (sessions != null) {
+                        RpgTag("${sessions.size}")
+                    }
+                }
+            )
+
+            if (selectedDate != null) {
+                val sessions = sessionsByDate[selectedDate]
+                if (sessions != null) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(sessions) { log ->
+                            val mins = log.totalSeconds / 60
+                            val secs = log.totalSeconds % 60
+                            val time = Instant.ofEpochMilli(log.startMillis).atZone(ZoneId.systemDefault()).toLocalTime()
+                            val formatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()) }
+                            Surface(
+                                tonalElevation = 1.dp,
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                             ) {
-                                Text(
-                                    "${sdf.format(Date(log.startMillis))}",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text(
-                                    "${mins} min${if (secs > 0) " ${secs}s" else ""}${if (log.aborted) " • stopped" else ""}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    RpgTag(text = "${log.segments.size} segments")
-                                    TextButton(onClick = { onOpen(log) }) { Text("View chronicle") }
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        time.format(formatter),
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Text(
+                                        "${mins} min${if (secs > 0) " ${secs}s" else ""}${if (log.aborted) " • stopped" else ""}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (log.programId != null) {
+                                            RpgTag(text = "Campaign")
+                                        } else {
+                                            RpgTag(text = "Quick Run")
+                                        }
+                                        RpgTag(text = "${log.segments.size} segments")
+                                        TextButton(onClick = { onOpen(log) }) { Text("View chronicle") }
+                                    }
                                 }
                             }
                         }
                     }
+                } else {
+                    RpgCallout("No journeys recorded for this day.")
                 }
             }
         }
@@ -160,7 +195,7 @@ fun HistoryDetailScreen(
     log: SessionLog,
     onBack: () -> Unit // kept for API symmetry; the shell handles the top bar/back
 ) {
-    val sdf = remember { SimpleDateFormat("MMM d, yyyy  h:mm a", Locale.getDefault()) }
+    val sdf = remember { DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.getDefault()) }
     val mins = log.totalSeconds / 60
     val secs = log.totalSeconds % 60
 
@@ -172,7 +207,7 @@ fun HistoryDetailScreen(
     ) {
         RpgPanel(
             title = "Session chronicle",
-            subtitle = sdf.format(Date(log.startMillis))
+            subtitle = sdf.format(Instant.ofEpochMilli(log.startMillis).atZone(ZoneId.systemDefault()))
         ) {
             Text(
                 "Duration: ${mins} min${if (secs > 0) " ${secs}s" else ""}${if (log.aborted) " • stopped" else ""}",

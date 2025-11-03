@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
@@ -53,6 +54,7 @@ import app.insidepacer.ui.programs.ProgramEditorScreen
 import app.insidepacer.ui.programs.ProgramsListScreen
 import app.insidepacer.ui.programs.TodayScreen
 import app.insidepacer.ui.quick.QuickSessionScreen
+import app.insidepacer.ui.schedule.ScheduleScreen
 import app.insidepacer.ui.settings.SettingsScreen
 import app.insidepacer.ui.templates.TemplateEditorScreen
 import app.insidepacer.ui.templates.TemplatesListScreen
@@ -72,8 +74,9 @@ fun AppNav() {
         Destination.Quick,
         Destination.Templates,
         Destination.History,
-        Destination.Programs,   // NEW
-        Destination.Today,       // NEW
+        Destination.Programs,
+        Destination.Schedule,
+        Destination.Today,
         Destination.Settings
     )
 
@@ -84,9 +87,10 @@ fun AppNav() {
         Destination.History.route -> "Run Ledger"
         Destination.HistoryDetail.route -> "Session Chronicle"
         Destination.Onboarding.route -> "Pace Registry"
-        Destination.Programs.route -> "Campaigns"          // NEW
-        Destination.ProgramEditor.route -> "Edit Campaign" // NEW
-        Destination.Today.route -> "Today’s Quest"         // NEW
+        Destination.Programs.route -> "Campaigns"
+        Destination.ProgramEditor.route -> "Edit Campaign"
+        Destination.Schedule.route -> "Schedule"
+        Destination.Today.route -> "Today’s Quest"
         Destination.Settings.route -> "Coach Settings"
         else -> "InsidePacer"
     }
@@ -130,6 +134,7 @@ fun AppNav() {
                                     Destination.Quick -> Icons.Default.PlayArrow
                                     Destination.Templates -> Icons.AutoMirrored.Filled.ListAlt
                                     Destination.History -> Icons.Default.History
+                                    Destination.Schedule -> Icons.Default.CalendarMonth
                                     Destination.Settings -> Icons.Default.Settings
                                     else -> Icons.Default.PlayArrow
                                 },
@@ -213,7 +218,7 @@ fun AppNav() {
                         }
 
                         composable(Destination.Quick.route) {
-                            QuickSessionScreen(onEditSpeeds = { nav.navigate(Destination.Onboarding.route) })
+                            QuickSessionScreen()
                         }
 
                         composable(Destination.Templates.route) {
@@ -228,7 +233,7 @@ fun AppNav() {
                             arguments = Destination.TemplateEditor.arguments
                         ) { entry ->
                             val tid = entry.arguments?.getString("tid")
-                            TemplateEditorScreen(templateId = tid, onBack = { nav.popBackStack() })
+                            TemplateEditorScreen(id = tid, onNavigateBack = { nav.popBackStack() })
                         }
 
                         composable(Destination.History.route) {
@@ -265,6 +270,9 @@ fun AppNav() {
                         composable(Destination.Today.route) {
                             TodayScreen(onOpenPrograms = { nav.navigate(Destination.Programs.route) })
                         }
+                        composable(Destination.Schedule.route) {
+                            ScheduleScreen()
+                        }
                         composable(Destination.Settings.route) { 
                             SettingsScreen() 
                         }
@@ -279,8 +287,9 @@ fun drawerLabelFor(destination: Destination) = when (destination) {
     Destination.Quick -> "Quick Quest"
     Destination.Templates -> "Training Tomes"
     Destination.History -> "Run Ledger"
-    Destination.Programs -> "Campaigns"     // NEW
-    Destination.Today -> "Today’s Quest"    // NEW
+    Destination.Programs -> "Campaigns"
+    Destination.Schedule -> "Schedule"
+    Destination.Today -> "Today’s Quest"
     Destination.Settings -> "Settings"
     else -> destination.route.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }

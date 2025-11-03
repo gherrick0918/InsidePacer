@@ -1,83 +1,106 @@
 package app.insidepacer.engine
 
+import app.insidepacer.data.Units
 import app.insidepacer.domain.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlin.math.max
 
 class SessionScheduler(
-  private val cuePlayer: CuePlayer,
-  private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
-){
-  private val _state = MutableStateFlow(SessionState())
-  val state: StateFlow<SessionState> = _state
+    private val cuePlayer: CuePlayer,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+) {
+    private val _state = MutableStateFlow(SessionState())
+    val state: StateFlow<SessionState> = _state
 
-  private var job: Job? = null
-  @Volatile private var paused = false
-  private var onFinish: ((Long, Long, Int, Boolean) -> Unit)? = null
+    private var job: Job? = null
 
-  fun start(
-    segments: List<Segment>,
-    preChangeSeconds: Int = 10,
-    onFinish: ((startMs: Long, endMs: Long, elapsedSec: Int, aborted: Boolean) -> Unit)? = null
-  ){
-    job?.cancel()
-    paused = false
-    this.onFinish = onFinish
-    job = scope.launch {
-      val startMs = System.currentTimeMillis()
-      var elapsed = 0
-      cuePlayer.countdown321(1000)
+    @Volatile
+    private var paused = false
 
-      var segIdx = 0
-      loop@ for (seg in segments){
-        var t = seg.seconds
-        _state.value = _state.value.copy(
-          active = true, speed = seg.speed, currentSegment = segIdx,
-          nextChangeInSec = t
-        )
+    @Volatile
+    private var timeRemaining = 0
+    private var onFinish: ((startMs: Long, endMs: Long, elapsedSec: Int, aborted: Boolean) -> Unit)? =
+        null
 
-        while (t > 0){
-          // pre-change cue once, when crossing the threshold
-          if (t == preChangeSeconds) cuePlayer.preChange(preChangeSeconds)
+    fun start(
+        segments: List<Segment>,
+        units: Units,
+        preChangeSeconds: Int = 10,
+        onFinish: ((startMs: Long, endMs: Long, elapsedSec: Int, aborted: Boolean) -> Unit)? = null
+    ) {
+        job?.cancel()
+        paused = false
+        this.onFinish = onFinish
+        job = scope.launch {
+            val startMs = System.currentTimeMillis()
+            var elapsed = 0
+            var aborted = true
 
-          // pause gate
-          while (paused && isActive) delay(100)
+            try {
+                segments.firstOrNull()?.let { cuePlayer.announceStartingSpeed(it.speed, units) }
+                cuePlayer.countdown321(1000)
 
-          delay(1000)
-          t--
-          elapsed++
-          _state.value = _state.value.copy(elapsedSec = elapsed, nextChangeInSec = t)
+                var segIdx = 0
+                for (seg in segments) {
+                    timeRemaining = seg.seconds
+                    _state.value = _state.value.copy(
+                        active = true, speed = seg.speed, currentSegment = segIdx,
+                        nextChangeInSec = timeRemaining
+                    )
 
-          if (!isActive) break@loop
+                    while (timeRemaining > 0) {
+                        val nextSpeed = segments.getOrNull(segIdx + 1)?.speed
+                        // pre-change cue once, when crossing the threshold
+                        if (timeRemaining == preChangeSeconds && nextSpeed != null) {
+                            cuePlayer.preChange(preChangeSeconds, nextSpeed, units)
+                        }
+
+                        if (timeRemaining <= 3) cuePlayer.beep()
+
+                        // pause gate
+                        while (paused && isActive) delay(100)
+
+                        delay(1000)
+                        timeRemaining--
+                        elapsed++
+                        _state.value =
+                            _state.value.copy(elapsedSec = elapsed, nextChangeInSec = timeRemaining)
+                    }
+                    segments.getOrNull(segIdx + 1)?.let { cuePlayer.changeNow(it.speed, units) }
+                    segIdx++
+                }
+                aborted = false
+                if (isActive) cuePlayer.finish()
+            } finally {
+                withContext(NonCancellable) {
+                    val endMs = System.currentTimeMillis()
+                    if (_state.value.active) { // only invoke if it was running
+                        onFinish?.invoke(startMs, endMs, elapsed, aborted)
+                    }
+                    _state.value = _state.value.copy(active = false)
+                }
+            }
         }
-        if (!isActive) break@loop
-        cuePlayer.changeNow()
-        segIdx++
-      }
-
-      if (isActive) cuePlayer.finish()
-      val endMs = System.currentTimeMillis()
-      val aborted = !isActive && _state.value.active // stopped mid-run
-      _state.value = _state.value.copy(active = false)
-      onFinish?.invoke(startMs, endMs, elapsed, aborted)
     }
-  }
 
-  fun stop(){ job?.cancel(); _state.value = _state.value.copy(active=false) }
-  fun pause(){ paused = true }
-  fun resume(){ paused = false }
-  fun togglePause(){ paused = !paused }
+    fun stop() {
+        job?.cancel()
+    }
 
-  fun skipToNext(segments: List<Segment>){
-    if (!_state.value.active) return
-    // force next change
-    _state.value = _state.value.copy(nextChangeInSec = 0)
-  }
+    fun pause() {
+        paused = true
+    }
 
-  fun skipToPrev(){
-    // purely UI level; scheduler runs forward only. For simplicity we just set nextChange to 0;
-    // if you want true "previous", model segments index and restart current with remaining time.
-    _state.value = _state.value.copy(nextChangeInSec = 0)
-  }
+    fun resume() {
+        paused = false
+    }
+
+    fun togglePause() {
+        paused = !paused
+    }
+
+    fun skip() {
+        if (!_state.value.active) return
+        timeRemaining = 0
+    }
 }

@@ -1,5 +1,6 @@
 package app.insidepacer.ui.programs
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +23,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -41,6 +44,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private fun hms(total: Int): String {
@@ -56,12 +60,12 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
     val repo = remember { ProgramRepo(ctx) }
     val tplRepo = remember { TemplateRepo(ctx) }
     val progRepo = remember { ProgramProgressRepo.getInstance(ctx) }
-    val sessionRepo = remember { SessionRepo(ctx.applicationContext) }
+    val sessionRepo = remember { SessionRepo(ctx) }
 
     val activeId by prefs.activeProgramId.collectAsState(initial = null)
     val program = remember(activeId) { activeId?.let { repo.get(it) } }
-    val today = LocalDate.now().toEpochDay()
-    val dayIndex = program?.let { (today - it.startEpochDay).toInt() } ?: null
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    val dayIndex = program?.let { (selectedDate.toEpochDay() - it.startEpochDay).toInt() } ?: null
 
     val progress by progRepo.progress.collectAsState()
     val isDone = if (program != null && dayIndex != null) {
@@ -77,6 +81,7 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
     val settings = remember { SettingsRepo(ctx) }
     val voiceEnabled by settings.voiceEnabled.collectAsState(initial = true)
     val preChange by settings.preChangeSeconds.collectAsState(initial = 10)
+    val units by settings.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
     LaunchedEffect(voiceEnabled) { cue.setVoiceEnabled(voiceEnabled) }
 
 
@@ -89,7 +94,7 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
         }
 
         dayIndex!! < 0 || dayIndex >= program.weeks * program.daysPerWeek ->
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Program not active today") }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Program not active on this day") }
 
         else -> {
             val w = dayIndex / program.daysPerWeek
@@ -99,6 +104,15 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
             val tmplName = tid?.let { tplRepo.get(it)?.name } ?: "Rest"
 
             Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(onClick = { selectedDate = selectedDate.minusDays(1) }) { Text("<") }
+                    Text(
+                        text = selectedDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Button(onClick = { selectedDate = selectedDate.plusDays(1) }, enabled = selectedDate.isBefore(LocalDate.now())) { Text(">") }
+                }
+
                 Text("Week ${w + 1}, Day ${d + 1}")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Assignment: $tmplName")
@@ -120,10 +134,11 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                       if (tid == null) return@Button
                       val segments = tplRepo.get(tid)?.segments ?: emptyList()
                       if (segments.isEmpty()) return@Button
-                      scheduler.start(segments, preChange) { sMs, eMs, elapsedSec, aborted ->
+                      scheduler.start(segments, units, preChange) { sMs, eMs, elapsedSec, aborted ->
                           val realized = sessionRepo.realizedSegments(segments, elapsedSec)
                           val log = SessionLog(
                               id = "sess_${sMs}",
+                              programId = program.id,
                               startMillis = sMs,
                               endMillis = eMs,
                               totalSeconds = elapsedSec,
@@ -131,7 +146,11 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                               aborted = aborted
                           )
                           CoroutineScope(Dispatchers.IO).launch {
-                              try { sessionRepo.append(log) } catch (_: Throwable) {}
+                              try {
+                                  sessionRepo.append(log)
+                              } catch (e: Throwable) {
+                                  Log.e("TodayScreen", "Failed to save session", e)
+                              }
                               if (!aborted) {
                                   progRepo.markDone(program.id, epochDay)
                               }
@@ -139,10 +158,10 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                       }
                     },
                     enabled = !running && tid != null
-                  ) { Text(if (isDone) "Run again" else "Run today") }
+                  ) { Text(if (isDone) "Run again" else if (selectedDate == LocalDate.now()) "Run today" else "Run this day") }
 
                   OutlinedButton(onClick = { scheduler.togglePause() }, enabled = running) { Text("Pause/Resume") }
-                  OutlinedButton(onClick = { scheduler.skipToNext(tplRepo.get(tid ?: "")?.segments ?: emptyList()) }, enabled = running && tid != null) { Text("Skip") }
+                  OutlinedButton(onClick = { scheduler.skip() }, enabled = running && tid != null) { Text("Skip") }
                   OutlinedButton(onClick = { scheduler.stop() }, enabled = running) { Text("Stop") }
                 }
 

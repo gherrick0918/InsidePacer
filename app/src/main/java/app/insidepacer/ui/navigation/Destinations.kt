@@ -18,6 +18,7 @@ sealed class Destination(val route: String) {
     data object History : Destination("history")
     data object Programs : Destination("programs")
     data object Today : Destination("today")
+    data object Schedule : Destination("schedule")
     data object Settings : Destination("settings")
 
     data object TemplateEditor : Destination("templateEditor?tid={tid}") {

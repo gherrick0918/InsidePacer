@@ -15,6 +15,7 @@ import kotlinx.serialization.Serializable
 @kotlinx.serialization.Serializable
 data class SessionLog(
     val id: String,
+    val programId: String?,
     val startMillis: Long,
     val endMillis: Long,
     val totalSeconds: Int,

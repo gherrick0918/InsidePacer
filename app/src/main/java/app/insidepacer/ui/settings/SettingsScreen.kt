@@ -36,7 +36,7 @@ fun SettingsScreen() {
         valueRange = 3f..30f,
         steps = 27
       )
-      Text("You’ll hear “Speed change in N seconds” once per segment.")
+      Text("You’ll hear voice cues like \"Speed change in 10 seconds to 5.5\" and \"Change speed now to 5.5\".")
     }
   }
 }
