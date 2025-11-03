@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -81,6 +82,14 @@ fun QuickSessionScreen(
     var selected by remember { mutableStateOf<Double?>(null) }
     var secsText by remember { mutableStateOf("60") }
     val segments = remember { mutableStateListOf<Segment>() }
+
+    val settings = remember { SettingsRepo(ctx) }
+    val voiceEnabled by settings.voiceEnabled.collectAsState(initial = true)
+    val preChange by settings.preChangeSeconds.collectAsState(initial = 10)
+
+    // keep CuePlayer in sync
+    LaunchedEffect(voiceEnabled) { cue.setVoiceEnabled(voiceEnabled) }
+
 
     val scrollState = rememberScrollState()
     Column(
@@ -175,34 +184,20 @@ fun QuickSessionScreen(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
-                    onClick = {
-                        if (segments.isNotEmpty()) {
-                            val plan = segments.toList()
-                            scheduler.start(plan) { startMs, endMs, elapsedSec, aborted ->
-                                val realized = sessionRepo.realizedSegments(plan, elapsedSec)
-                                val log = app.insidepacer.domain.SessionLog(
-                                    id = "sess_${startMs}",
-                                    startMillis = startMs,
-                                    endMillis = endMs,
-                                    totalSeconds = elapsedSec,
-                                    segments = realized,
-                                    aborted = aborted
-                                )
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    try {
-                                        sessionRepo.append(log)
-                                    } catch (_: Throwable) {
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    enabled = !isRunning && segments.isNotEmpty()
-                ) { Text("Begin quest") }
-                OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Halt") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              Button(
+                onClick = { if (segments.isNotEmpty()) scheduler.start(segments.toList(), preChange) },
+                enabled = !isRunning && segments.isNotEmpty()
+              ) { Text("Start") }
+
+              OutlinedButton(onClick = { scheduler.togglePause() }, enabled = isRunning) {
+                Text(if (state.active && state.nextChangeInSec > 0) "Pause" else "Resume")
+              }
+
+              OutlinedButton(onClick = { scheduler.skipToNext(segments.toList()) }, enabled = isRunning) { Text("Skip") }
+              OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
             }
+
 
             TextButton(onClick = onEditSpeeds) { Text("Edit pace registry") }
         }

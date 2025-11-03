@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,6 +53,7 @@ import app.insidepacer.ui.programs.ProgramEditorScreen
 import app.insidepacer.ui.programs.ProgramsListScreen
 import app.insidepacer.ui.programs.TodayScreen
 import app.insidepacer.ui.quick.QuickSessionScreen
+import app.insidepacer.ui.settings.SettingsScreen
 import app.insidepacer.ui.templates.TemplateEditorScreen
 import app.insidepacer.ui.templates.TemplatesListScreen
 import kotlinx.coroutines.flow.first
@@ -71,7 +73,8 @@ fun AppNav() {
         Destination.Templates,
         Destination.History,
         Destination.Programs,   // NEW
-        Destination.Today       // NEW
+        Destination.Today,       // NEW
+        Destination.Settings
     )
 
     val currentScreenTitle = when (currentRoute) {
@@ -84,6 +87,7 @@ fun AppNav() {
         Destination.Programs.route -> "Campaigns"          // NEW
         Destination.ProgramEditor.route -> "Edit Campaign" // NEW
         Destination.Today.route -> "Today’s Quest"         // NEW
+        Destination.Settings.route -> "Coach Settings"
         else -> "InsidePacer"
     }
     val showBackArrow = currentRoute in listOf(
@@ -126,6 +130,7 @@ fun AppNav() {
                                     Destination.Quick -> Icons.Default.PlayArrow
                                     Destination.Templates -> Icons.AutoMirrored.Filled.ListAlt
                                     Destination.History -> Icons.Default.History
+                                    Destination.Settings -> Icons.Default.Settings
                                     else -> Icons.Default.PlayArrow
                                 },
                                 contentDescription = null
@@ -260,6 +265,9 @@ fun AppNav() {
                         composable(Destination.Today.route) {
                             TodayScreen(onOpenPrograms = { nav.navigate(Destination.Programs.route) })
                         }
+                        composable(Destination.Settings.route) { 
+                            SettingsScreen() 
+                        }
                     }
                 }
             }
@@ -273,5 +281,6 @@ fun drawerLabelFor(destination: Destination) = when (destination) {
     Destination.History -> "Run Ledger"
     Destination.Programs -> "Campaigns"     // NEW
     Destination.Today -> "Today’s Quest"    // NEW
+    Destination.Settings -> "Settings"
     else -> destination.route.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }

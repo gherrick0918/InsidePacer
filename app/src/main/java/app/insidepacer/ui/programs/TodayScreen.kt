@@ -14,10 +14,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -29,6 +31,7 @@ import app.insidepacer.data.ProgramPrefs
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.ProgramRepo
 import app.insidepacer.data.SessionRepo
+import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.TemplateRepo
 import app.insidepacer.domain.SessionLog
 import app.insidepacer.domain.SessionState
@@ -71,6 +74,12 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
     val state by scheduler.state.collectAsState(initial = SessionState())
     val running = state.active
 
+    val settings = remember { SettingsRepo(ctx) }
+    val voiceEnabled by settings.voiceEnabled.collectAsState(initial = true)
+    val preChange by settings.preChangeSeconds.collectAsState(initial = 10)
+    LaunchedEffect(voiceEnabled) { cue.setVoiceEnabled(voiceEnabled) }
+
+
     when {
         program == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -106,32 +115,35 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            if (tid == null) return@Button
-                            val segments = tplRepo.get(tid)?.segments ?: emptyList()
-                            if (segments.isEmpty()) return@Button
-                            // Start + onFinish append to history and mark done
-                            scheduler.start(segments) { sMs, eMs, elapsedSec, aborted ->
-                                val realized = sessionRepo.realizedSegments(segments, elapsedSec)
-                                val log = SessionLog(
-                                    id = "sess_${sMs}",
-                                    startMillis = sMs,
-                                    endMillis = eMs,
-                                    totalSeconds = elapsedSec,
-                                    segments = realized,
-                                    aborted = aborted
-                                )
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    try { sessionRepo.append(log) } catch (_: Throwable) {}
-                                    if (!aborted) {
-                                        progRepo.markDone(program.id, epochDay)
-                                    }
-                                }
-                            }
-                        },
-                        enabled = !running && tid != null
-                    ) { Text(if (isDone) "Run again" else "Run today") }
+                  Button(
+                    onClick = {
+                      if (tid == null) return@Button
+                      val segments = tplRepo.get(tid)?.segments ?: emptyList()
+                      if (segments.isEmpty()) return@Button
+                      scheduler.start(segments, preChange) { sMs, eMs, elapsedSec, aborted ->
+                          val realized = sessionRepo.realizedSegments(segments, elapsedSec)
+                          val log = SessionLog(
+                              id = "sess_${sMs}",
+                              startMillis = sMs,
+                              endMillis = eMs,
+                              totalSeconds = elapsedSec,
+                              segments = realized,
+                              aborted = aborted
+                          )
+                          CoroutineScope(Dispatchers.IO).launch {
+                              try { sessionRepo.append(log) } catch (_: Throwable) {}
+                              if (!aborted) {
+                                  progRepo.markDone(program.id, epochDay)
+                              }
+                          }
+                      }
+                    },
+                    enabled = !running && tid != null
+                  ) { Text(if (isDone) "Run again" else "Run today") }
+
+                  OutlinedButton(onClick = { scheduler.togglePause() }, enabled = running) { Text("Pause/Resume") }
+                  OutlinedButton(onClick = { scheduler.skipToNext(tplRepo.get(tid ?: "")?.segments ?: emptyList()) }, enabled = running && tid != null) { Text("Skip") }
+                  OutlinedButton(onClick = { scheduler.stop() }, enabled = running) { Text("Stop") }
                 }
 
                 if (tid == null) {

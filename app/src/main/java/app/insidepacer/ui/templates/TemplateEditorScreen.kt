@@ -84,6 +84,11 @@ fun TemplateEditorScreen(
     val scheduler = remember { SessionScheduler(cue) }
     val state by scheduler.state.collectAsState(initial = SessionState())
 
+    val voiceEnabled by settings.voiceEnabled.collectAsState(initial = true)
+    val preChange by settings.preChangeSeconds.collectAsState(initial = 10)
+    LaunchedEffect(voiceEnabled) { cue.setVoiceEnabled(voiceEnabled) }
+
+
     Column(
         Modifier
             .fillMaxSize()
@@ -197,9 +202,12 @@ fun TemplateEditorScreen(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { if (segments.isNotEmpty()) scheduler.start(segments.toList()) }, enabled = !isRunning && segments.isNotEmpty()) { Text("Run test") }
-                OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Halt") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { if (segments.isNotEmpty()) scheduler.start(segments.toList(), preChange) },
+                       enabled = !isRunning && segments.isNotEmpty()) { Text("Run test") }
+                OutlinedButton(onClick = { scheduler.togglePause() }, enabled = isRunning) { Text("Pause/Resume") }
+                OutlinedButton(onClick = { scheduler.skipToNext(segments.toList()) }, enabled = isRunning) { Text("Skip") }
+                OutlinedButton(onClick = { scheduler.stop() }, enabled = isRunning) { Text("Stop") }
             }
 
             TextButton(onClick = onBack) { Text("Return without testing") }

@@ -1,7 +1,9 @@
 package app.insidepacer.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -22,6 +24,22 @@ class SettingsRepo(private val context: Context) {
     private val UNITS = stringPreferencesKey("units")
     private val BIOM = stringPreferencesKey("biometrics")
     private val json = Json { ignoreUnknownKeys = true }
+
+    private val KEY_VOICE_ENABLED   = booleanPreferencesKey("voice_enabled")
+    private val KEY_PRECHANGE_SEC   = intPreferencesKey("prechange_seconds")
+
+    // Defaults
+    val voiceEnabled = context.settingsDataStore.data.map { it[KEY_VOICE_ENABLED] ?: true }
+    val preChangeSeconds = context.settingsDataStore.data.map { it[KEY_PRECHANGE_SEC] ?: 10 }
+
+    suspend fun setVoiceEnabled(enabled: Boolean) {
+      context.settingsDataStore.edit { it[KEY_VOICE_ENABLED] = enabled }
+    }
+
+    suspend fun setPreChangeSeconds(sec: Int) {
+      context.settingsDataStore.edit { it[KEY_PRECHANGE_SEC] = sec.coerceIn(3, 30) }
+    }
+
 
     val units: Flow<Units> = context.settingsDataStore.data.map { p ->
         when (p[UNITS]) { "KMH" -> Units.KMH; else -> Units.MPH }
