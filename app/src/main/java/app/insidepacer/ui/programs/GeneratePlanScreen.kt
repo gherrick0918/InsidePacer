@@ -5,11 +5,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -24,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.insidepacer.data.ProfileRepo
@@ -35,10 +38,14 @@ import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.TemplateRepo
 import app.insidepacer.domain.Program
 import app.insidepacer.domain.UserProfile
+import app.insidepacer.ui.CM_PER_INCH
+import app.insidepacer.ui.KG_PER_POUND
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 @Composable
 fun GeneratePlanScreen(onDone: (Program) -> Unit) {
@@ -62,22 +69,38 @@ fun GeneratePlanScreen(onDone: (Program) -> Unit) {
     val heightMeters = profile.heightCm / 100.0
     val bmi = if (heightMeters > 0) profile.weightKg / heightMeters.pow(2.0) else 0.0
     val risk = profile.age >= 55 || bmi >= 30.0
+    val useImperial = profile.units.equals("mph", ignoreCase = true)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Generate campaign", style = MaterialTheme.typography.titleMedium)
         status?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
 
         Text("Profile snapshot", fontWeight = FontWeight.Bold)
-        Text(
-            "Age: ${profile.age} • Height: ${profile.heightCm} cm • Weight: ${String.format(Locale.getDefault(), "%.1f", profile.weightKg)} kg"
-        )
-        profile.targetWeightKg?.let {
-            Text("Target weight: ${String.format(Locale.getDefault(), "%.1f", it)} kg")
+        if (useImperial) {
+            val totalInches = profile.heightCm / CM_PER_INCH
+            val feet = (totalInches / 12).toInt()
+            val inches = (totalInches % 12).roundToInt()
+            val pounds = profile.weightKg / KG_PER_POUND
+            Text(
+                "Age: ${profile.age} • Height: $feet' $inches\" • Weight: ${String.format(Locale.getDefault(), "%.1f", pounds)} lbs"
+            )
+            profile.targetWeightKg?.let {
+                val targetPounds = it / KG_PER_POUND
+                Text("Target weight: ${String.format(Locale.getDefault(), "%.1f", targetPounds)} lbs")
+            }
+        } else {
+            Text(
+                "Age: ${profile.age} • Height: ${profile.heightCm} cm • Weight: ${String.format(Locale.getDefault(), "%.1f", profile.weightKg)} kg"
+            )
+            profile.targetWeightKg?.let {
+                Text("Target weight: ${String.format(Locale.getDefault(), "%.1f", it)} kg")
+            }
         }
         Text("Days/week: ${profile.preferredDaysPerWeek} • Session range: ${profile.sessionMinMin}-${profile.sessionMaxMin} min")
         Text("Level: ${profile.level} • Units: ${profile.units}")
@@ -89,9 +112,9 @@ fun GeneratePlanScreen(onDone: (Program) -> Unit) {
                 if (risk) "reduced intensity" else "full intensity"
             )
         )
-        Text("Plan start: ${LocalDate.ofEpochDay(profile.startEpochDay)}")
+        Text("Plan start: ${LocalDate.ofEpochDay(profile.startEpochDay).format(DateTimeFormatter.ISO_LOCAL_DATE)}")
 
-        Divider()
+        HorizontalDivider()
         Text(
             "Saved speeds (${speeds.size}): " +
                 if (speeds.isEmpty()) "None" else speeds.joinToString(", ") {

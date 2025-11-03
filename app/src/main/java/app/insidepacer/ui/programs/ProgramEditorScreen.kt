@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -169,8 +171,6 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             LocalDate.ofEpochDay(program.startEpochDay).format(DateTimeFormatter.ISO_LOCAL_DATE)
         }")
 
-        Spacer(Modifier.height(8.dp))
-        Text("Start epochDay: ${program.startEpochDay}")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
             OutlinedButton(onClick = {
                 val today = LocalDate.now().toEpochDay()
