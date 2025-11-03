@@ -12,10 +12,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -50,6 +52,8 @@ import app.insidepacer.ui.history.HistoryDetailScreen
 import app.insidepacer.ui.history.HistoryScreen
 import app.insidepacer.ui.navigation.Destination
 import app.insidepacer.ui.onboarding.SpeedsScreen
+import app.insidepacer.ui.profile.ProfileScreen
+import app.insidepacer.ui.programs.GeneratePlanScreen
 import app.insidepacer.ui.programs.ProgramEditorScreen
 import app.insidepacer.ui.programs.ProgramsListScreen
 import app.insidepacer.ui.programs.TodayScreen
@@ -75,6 +79,8 @@ fun AppNav() {
         Destination.Templates,
         Destination.History,
         Destination.Programs,
+        Destination.GeneratePlan,
+        Destination.Profile,
         Destination.Schedule,
         Destination.Today,
         Destination.Settings
@@ -88,6 +94,8 @@ fun AppNav() {
         Destination.HistoryDetail.route -> "Session Chronicle"
         Destination.Onboarding.route -> "Pace Registry"
         Destination.Programs.route -> "Campaigns"
+        Destination.GeneratePlan.route -> "Generate Plan"
+        Destination.Profile.route -> "Profile"
         Destination.ProgramEditor.route -> "Edit Campaign"
         Destination.Schedule.route -> "Schedule"
         Destination.Today.route -> "Today’s Quest"
@@ -134,7 +142,11 @@ fun AppNav() {
                                     Destination.Quick -> Icons.Default.PlayArrow
                                     Destination.Templates -> Icons.AutoMirrored.Filled.ListAlt
                                     Destination.History -> Icons.Default.History
+                                    Destination.Programs -> Icons.Default.PlayArrow
+                                    Destination.GeneratePlan -> Icons.Default.Star
+                                    Destination.Profile -> Icons.Default.Person
                                     Destination.Schedule -> Icons.Default.CalendarMonth
+                                    Destination.Today -> Icons.Default.CalendarMonth
                                     Destination.Settings -> Icons.Default.Settings
                                     else -> Icons.Default.PlayArrow
                                 },
@@ -255,8 +267,17 @@ fun AppNav() {
                             ProgramsListScreen(
                                 onNew = { nav.navigate(Destination.ProgramEditor.route) },
                                 onEdit = { id -> nav.navigate(Destination.ProgramEditor.buildRoute(id)) },
-                                onOpenToday = { nav.navigate(Destination.Today.route) }
+                                onOpenToday = { nav.navigate(Destination.Today.route) },
+                                onGenerate = { nav.navigate(Destination.GeneratePlan.route) }
                             )
+                        }
+
+                        composable(Destination.GeneratePlan.route) {
+                            GeneratePlanScreen { program ->
+                                nav.navigate(Destination.ProgramEditor.buildRoute(program.id)) {
+                                    launchSingleTop = true
+                                }
+                            }
                         }
 
                         composable(
@@ -273,8 +294,12 @@ fun AppNav() {
                         composable(Destination.Schedule.route) {
                             ScheduleScreen()
                         }
-                        composable(Destination.Settings.route) { 
-                            SettingsScreen() 
+                        composable(Destination.Profile.route) {
+                            ProfileScreen()
+                        }
+
+                        composable(Destination.Settings.route) {
+                            SettingsScreen()
                         }
                     }
                 }
@@ -288,6 +313,8 @@ fun drawerLabelFor(destination: Destination) = when (destination) {
     Destination.Templates -> "Training Tomes"
     Destination.History -> "Run Ledger"
     Destination.Programs -> "Campaigns"
+    Destination.GeneratePlan -> "Generate Plan"
+    Destination.Profile -> "Profile"
     Destination.Schedule -> "Schedule"
     Destination.Today -> "Today’s Quest"
     Destination.Settings -> "Settings"

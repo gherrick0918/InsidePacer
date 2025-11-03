@@ -42,7 +42,8 @@ import kotlinx.coroutines.launch
 fun ProgramsListScreen(
     onNew: () -> Unit,
     onEdit: (String) -> Unit,
-    onOpenToday: () -> Unit
+    onOpenToday: () -> Unit,
+    onGenerate: () -> Unit
 ) {
     val ctx = LocalContext.current
     val repo = remember { ProgramRepo(ctx) }
@@ -60,6 +61,8 @@ fun ProgramsListScreen(
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { refresh() }) { Text("Refresh") }
+            Spacer(Modifier.width(4.dp))
+            TextButton(onClick = onGenerate) { Text("Generate plan") }
             Spacer(Modifier.width(4.dp))
             TextButton(onClick = onNew) { Text("New") }
             Spacer(Modifier.width(4.dp))

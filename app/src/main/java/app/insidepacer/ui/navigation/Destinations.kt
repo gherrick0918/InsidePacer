@@ -17,9 +17,11 @@ sealed class Destination(val route: String) {
     data object Templates : Destination("templates")
     data object History : Destination("history")
     data object Programs : Destination("programs")
+    data object GeneratePlan : Destination("generatePlan")
     data object Today : Destination("today")
     data object Schedule : Destination("schedule")
     data object Settings : Destination("settings")
+    data object Profile : Destination("profile")
 
     data object TemplateEditor : Destination("templateEditor?tid={tid}") {
         override val arguments = listOf(navArgument("tid") {
