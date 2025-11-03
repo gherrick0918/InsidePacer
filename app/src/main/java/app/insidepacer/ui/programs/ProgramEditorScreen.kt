@@ -19,6 +19,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -167,6 +168,37 @@ fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
         Text("Active: ${if (program.id == activeId) "yes" else "no"} • Start: ${
             LocalDate.ofEpochDay(program.startEpochDay).format(DateTimeFormatter.ISO_LOCAL_DATE)
         }")
+
+        Spacer(Modifier.height(8.dp))
+        Text("Start epochDay: ${program.startEpochDay}")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+            OutlinedButton(onClick = {
+                val today = LocalDate.now().toEpochDay()
+                val updated = program.copy(startEpochDay = today)
+                saveNow(updated)
+                month = YearMonth.from(LocalDate.ofEpochDay(updated.startEpochDay))
+            }) { Text("Set to today") }
+            OutlinedButton(onClick = {
+                val updated = program.copy(startEpochDay = program.startEpochDay - 1)
+                saveNow(updated)
+                month = YearMonth.from(LocalDate.ofEpochDay(updated.startEpochDay))
+            }) { Text("-1 day") }
+            OutlinedButton(onClick = {
+                val updated = program.copy(startEpochDay = program.startEpochDay + 1)
+                saveNow(updated)
+                month = YearMonth.from(LocalDate.ofEpochDay(updated.startEpochDay))
+            }) { Text("+1 day") }
+            OutlinedButton(onClick = {
+                val updated = program.copy(startEpochDay = program.startEpochDay - 7)
+                saveNow(updated)
+                month = YearMonth.from(LocalDate.ofEpochDay(updated.startEpochDay))
+            }) { Text("-7 days") }
+            OutlinedButton(onClick = {
+                val updated = program.copy(startEpochDay = program.startEpochDay + 7)
+                saveNow(updated)
+                month = YearMonth.from(LocalDate.ofEpochDay(updated.startEpochDay))
+            }) { Text("+7 days") }
+        }
     }
 
     if (showPickerForDate != null) {

@@ -23,6 +23,7 @@ class ProgramRepo(private val ctx: Context) {
 
     fun loadAll(): List<Program> = readAll().sortedBy { it.name }
     fun get(id: String): Program? = readAll().firstOrNull { it.id == id }
+    fun findByName(name: String): Program? = readAll().firstOrNull { it.name.equals(name, ignoreCase = true) }
     fun newId(): String = "prog_" + System.currentTimeMillis()
 
     fun create(name: String, startEpochDay: Long, weeks: Int, days: Int = 7): Program {
