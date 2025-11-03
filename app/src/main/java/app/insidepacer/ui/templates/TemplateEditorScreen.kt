@@ -1,11 +1,9 @@
 package app.insidepacer.ui.templates
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,7 +24,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,10 +39,8 @@ import androidx.compose.ui.unit.dp
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.TemplateRepo
 import app.insidepacer.domain.Segment
-import app.insidepacer.domain.SessionState
 import app.insidepacer.domain.Template
-import app.insidepacer.engine.CuePlayer
-import app.insidepacer.engine.SessionScheduler
+import app.insidepacer.service.startSessionService
 import kotlinx.coroutines.launch
 
 @Composable
@@ -76,13 +71,6 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
     val preChange by settings.preChangeSeconds.collectAsState(initial = 10)
     val units by settings.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
 
-    val cue = remember { CuePlayer(context) }
-    DisposableEffect(Unit) { onDispose { cue.release() } }
-    LaunchedEffect(voiceEnabled) { cue.setVoiceEnabled(voiceEnabled) }
-    val scheduler = remember { SessionScheduler(cue) }
-    val state by scheduler.state.collectAsState(initial = SessionState())
-    val running = state.active
-
     Column(modifier = Modifier.padding(16.dp)) {
         OutlinedTextField(
             value = name,
@@ -92,81 +80,68 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (running) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Speed: ${state.speed}")
-                    Text("Next change in: ${state.nextChangeInSec}s")
-                    Text("Time elapsed: ${state.elapsedSec}s")
-                }
-            }
-        } else {
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                itemsIndexed(segments) { i, seg ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = seg.speed.toString(),
-                            onValueChange = {
-                                val speed = it.toDoubleOrNull() ?: 0.0
-                                val newSegs = segments.toMutableList()
-                                newSegs[i] = newSegs[i].copy(speed = speed)
-                                segments = newSegs
-                            },
-                            label = { Text("Speed") },
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                        OutlinedTextField(
-                            value = seg.seconds.toString(),
-                            onValueChange = {
-                                val secs = it.toIntOrNull() ?: 0
-                                val newSegs = segments.toMutableList()
-                                newSegs[i] = newSegs[i].copy(seconds = secs)
-                                segments = newSegs
-                            },
-                            label = { Text("Seconds") },
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                        IconButton(onClick = {
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            itemsIndexed(segments) { i, seg ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = seg.speed.toString(),
+                        onValueChange = {
+                            val speed = it.toDoubleOrNull() ?: 0.0
                             val newSegs = segments.toMutableList()
-                            if (i > 0) {
-                                val temp = newSegs[i - 1]
-                                newSegs[i - 1] = newSegs[i]
-                                newSegs[i] = temp
-                                segments = newSegs
-                            }
-                        }) { Icon(Icons.Default.ArrowUpward, "") }
-                        IconButton(onClick = {
-                            val newSegs = segments.toMutableList()
-                            if (i < newSegs.size - 1) {
-                                val temp = newSegs[i + 1]
-                                newSegs[i + 1] = newSegs[i]
-                                newSegs[i] = temp
-                                segments = newSegs
-                            }
-                        }) { Icon(Icons.Default.ArrowDownward, "") }
-                        IconButton(onClick = {
-                            val newSegs = segments.toMutableList()
-                            newSegs.removeAt(i)
+                            newSegs[i] = newSegs[i].copy(speed = speed)
                             segments = newSegs
-                        }) { Icon(Icons.Default.Delete, "") }
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                }
-                item {
-                    Button(onClick = {
+                        },
+                        label = { Text("Speed") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    OutlinedTextField(
+                        value = seg.seconds.toString(),
+                        onValueChange = {
+                            val secs = it.toIntOrNull() ?: 0
+                            val newSegs = segments.toMutableList()
+                            newSegs[i] = newSegs[i].copy(seconds = secs)
+                            segments = newSegs
+                        },
+                        label = { Text("Seconds") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    IconButton(onClick = {
                         val newSegs = segments.toMutableList()
-                        newSegs.add(Segment(2.0, 60))
+                        if (i > 0) {
+                            val temp = newSegs[i - 1]
+                            newSegs[i - 1] = newSegs[i]
+                            newSegs[i] = temp
+                            segments = newSegs
+                        }
+                    }) { Icon(Icons.Default.ArrowUpward, "") }
+                    IconButton(onClick = {
+                        val newSegs = segments.toMutableList()
+                        if (i < newSegs.size - 1) {
+                            val temp = newSegs[i + 1]
+                            newSegs[i + 1] = newSegs[i]
+                            newSegs[i] = temp
+                            segments = newSegs
+                        }
+                    }) { Icon(Icons.Default.ArrowDownward, "") }
+                    IconButton(onClick = {
+                        val newSegs = segments.toMutableList()
+                        newSegs.removeAt(i)
                         segments = newSegs
-                    }) { Icon(Icons.Default.Add, "") }
+                    }) { Icon(Icons.Default.Delete, "") }
                 }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+            item {
+                Button(onClick = {
+                    val newSegs = segments.toMutableList()
+                    newSegs.add(Segment(2.0, 60))
+                    segments = newSegs
+                }) { Icon(Icons.Default.Add, "") }
             }
         }
 
@@ -188,7 +163,12 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
             }) { Text("Save") }
 
             Button(onClick = {
-                scheduler.start(segments, units, preChange) { _, _, _, _ -> }
+                context.startSessionService(
+                    segments = segments,
+                    units = units,
+                    preChange = preChange,
+                    voiceOn = voiceEnabled
+                )
             }) {
                 Icon(Icons.Default.PlayArrow, "")
                 Spacer(Modifier.width(8.dp))

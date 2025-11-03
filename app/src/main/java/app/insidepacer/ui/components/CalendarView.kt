@@ -1,6 +1,7 @@
 
 package app.insidepacer.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -106,6 +107,73 @@ fun CalendarView(
                     } else {
                         // Empty cell for padding
                         Box(modifier = cellModifier)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CalendarView(
+    startEpochDay: Long,
+    weeks: Int,
+    daysPerWeek: Int,
+    isPlanned: (Long) -> Boolean,
+    isDone: (Long) -> Boolean,
+    onDayClick: (Long) -> Unit
+) {
+    val today = LocalDate.now().toEpochDay()
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            repeat(daysPerWeek) { day ->
+                Text(
+                    text = "D${day + 1}",
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        repeat(weeks) { weekIdx ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                repeat(daysPerWeek) { dayIdx ->
+                    val epoch = startEpochDay + weekIdx * daysPerWeek + dayIdx
+                    val date = LocalDate.ofEpochDay(epoch)
+                    val planned = isPlanned(epoch)
+                    val done = isDone(epoch)
+                    val color = when {
+                        done -> MaterialTheme.colorScheme.tertiaryContainer
+                        planned -> MaterialTheme.colorScheme.secondaryContainer
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                    val border = if (epoch == today) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                    Surface(
+                        color = color,
+                        border = border,
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .clickable { onDayClick(epoch) }
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(4.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = "W${weekIdx + 1} D${dayIdx + 1}",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Text(
+                                text = when {
+                                    done -> "✓"
+                                    planned -> "•"
+                                    else -> "Rest"
+                                },
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 }
             }
