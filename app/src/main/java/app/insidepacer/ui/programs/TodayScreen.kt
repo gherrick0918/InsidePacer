@@ -125,13 +125,11 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                     }
                 }
                 val streakValue = streaks
-                if (streakValue != null) {
-                    Spacer(Modifier.height(4.dp))
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("Streak ${streakValue.current} • Best ${streakValue.longest}") }
-                    )
-                }
+                Spacer(Modifier.height(4.dp))
+                AssistChip(
+                    onClick = {},
+                    label = { Text("Streak ${streakValue.current} • Best ${streakValue.longest}") }
+                )
 
                 Spacer(Modifier.height(16.dp))
 

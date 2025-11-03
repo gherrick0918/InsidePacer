@@ -4,9 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -48,6 +52,9 @@ fun SpeedsScreen(onContinue: () -> Unit) {
     val speeds by repo.speeds.collectAsState(initial = emptyList())
     val units by repo.units.collectAsState(initial = Units.MPH)
     var input by remember { mutableStateOf("") }
+    var minSpeed by remember { mutableStateOf("") }
+    var maxSpeed by remember { mutableStateOf("") }
+    var increment by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
     Column(
@@ -98,6 +105,55 @@ fun SpeedsScreen(onContinue: () -> Unit) {
                 OutlinedButton(onClick = { scope.launch { repo.setSpeeds(emptyList()) } }) {
                     Text("Clear all")
                 }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = minSpeed,
+                onValueChange = { minSpeed = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                label = { Text("Min speed") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = maxSpeed,
+                onValueChange = { maxSpeed = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                label = { Text("Max speed") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = increment,
+                onValueChange = { increment = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                label = { Text("Increment") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(onClick = {
+                val min = minSpeed.toDoubleOrNull()
+                val max = maxSpeed.toDoubleOrNull()
+                val inc = increment.toDoubleOrNull()
+                if (min != null && max != null && inc != null && min <= max && inc > 0) {
+                    val generatedSpeeds = mutableListOf<Double>()
+                    var current = min
+                    while (current <= max) {
+                        generatedSpeeds.add(current)
+                        current += inc
+                    }
+                    val new = (speeds + generatedSpeeds).distinct().sorted()
+                    scope.launch { repo.setSpeeds(new) }
+                    minSpeed = ""
+                    maxSpeed = ""
+                    increment = ""
+                }
+            }) {
+                Text("Generate Speeds")
             }
         }
 
