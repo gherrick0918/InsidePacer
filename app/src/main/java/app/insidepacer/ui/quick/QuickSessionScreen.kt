@@ -17,11 +17,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,13 +31,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,22 +44,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.insidepacer.data.SessionRepo
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.domain.Segment
-import app.insidepacer.domain.SessionLog
-import app.insidepacer.domain.SessionState
-import app.insidepacer.engine.CuePlayer
-import app.insidepacer.engine.SessionScheduler
+import app.insidepacer.service.pauseSession
+import app.insidepacer.service.resumeSession
+import app.insidepacer.service.startSessionService
+import app.insidepacer.service.stopSession
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 
 @Composable
 fun QuickSessionScreen() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val sessionRepo = remember { SessionRepo(ctx) }
     val settingsRepo = remember { SettingsRepo(ctx) }
     val units by settingsRepo.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
     val speeds by settingsRepo.speeds.collectAsState(initial = emptyList())
@@ -74,13 +67,8 @@ fun QuickSessionScreen() {
     var showResetDialog by remember { mutableStateOf(false) }
     var duration by remember { mutableStateOf("60") }
 
-    val cue = remember { CuePlayer(ctx) }
-    DisposableEffect(Unit) { onDispose { cue.release() } }
-    LaunchedEffect(voiceEnabled) { cue.setVoiceEnabled(voiceEnabled) }
-
-    val scheduler = remember { SessionScheduler(cue) }
-    val state by scheduler.state.collectAsState(initial = SessionState())
-    val isRunning = state.active
+    var running by rememberSaveable { mutableStateOf(false) }
+    var paused by rememberSaveable { mutableStateOf(false) }
 
 
     if (showResetDialog) {
@@ -102,26 +90,29 @@ fun QuickSessionScreen() {
         Text("Quick Session", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (isRunning) {
+        if (running) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Speed: ${state.speed}", fontSize = 24.sp)
-                    state.upcomingSpeed?.let { Text("Up next: $it", fontSize = 18.sp) }
-                    Text(
-                        "Time remaining in segment: ${state.nextChangeInSec}",
-                        fontSize = 18.sp
-                    )
-                    Text("Total time: ${state.elapsedSec}", fontSize = 18.sp)
+                    Text("Session running…", fontSize = 24.sp)
                     Spacer(modifier = Modifier.height(16.dp))
                     Row {
-                        Button(onClick = { scheduler.stop() }) { Text("Stop") }
+                        Button(onClick = {
+                            ctx.stopSession()
+                            running = false
+                            paused = false
+                        }) { Text("Stop") }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Button(onClick = { scheduler.togglePause() }) { Text(if (state.active) "Pause" else "Resume") }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Button(onClick = { scheduler.skip() }) { Text("Skip") }
+                        Button(onClick = {
+                            if (paused) {
+                                ctx.resumeSession()
+                            } else {
+                                ctx.pauseSession()
+                            }
+                            paused = !paused
+                        }) { Text(if (paused) "Resume" else "Pause") }
                     }
                 }
             }
@@ -205,22 +196,14 @@ fun QuickSessionScreen() {
             ) {
                 Button(
                     onClick = {
-                        scheduler.start(segments, units, preChangeSeconds) { startMs, endMs, elapsedSec, aborted ->
-                            scope.launch {
-                                val realized = sessionRepo.realizedSegments(segments, elapsedSec)
-                                sessionRepo.append(
-                                    SessionLog(
-                                        id = UUID.randomUUID().toString(),
-                                        programId = null,
-                                        startMillis = startMs,
-                                        endMillis = endMs,
-                                        totalSeconds = elapsedSec,
-                                        aborted = aborted,
-                                        segments = realized
-                                    )
-                                )
-                            }
-                        }
+                        ctx.startSessionService(
+                            segments = segments,
+                            units = units,
+                            preChange = preChangeSeconds,
+                            voiceOn = voiceEnabled
+                        )
+                        running = true
+                        paused = false
                     },
                     enabled = segments.isNotEmpty(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Green)

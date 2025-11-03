@@ -1,6 +1,9 @@
 package app.insidepacer.engine
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.ToneGenerator
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -8,15 +11,28 @@ import app.insidepacer.data.Units
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
     private val tts: TextToSpeech
+    private val audioManager = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val beeper = ToneGenerator(5, 100)
     @Volatile
     private var voiceOn = true
 
     private val ttsInitialized = CompletableDeferred<Unit>()
     private val utteranceCompletions = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
+    private val inFlight = AtomicInteger(0)
+    private val audioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+        .build()
+    private val focusRequest by lazy {
+        AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            .setAudioAttributes(audioAttributes)
+            .setOnAudioFocusChangeListener { }
+            .build()
+    }
 
     init {
         tts = TextToSpeech(ctx, this)
@@ -25,14 +41,17 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts.language = Locale.getDefault()
+            tts.setAudioAttributes(audioAttributes)
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String) {}
                 override fun onDone(utteranceId: String) {
                     utteranceCompletions.remove(utteranceId)?.complete(Unit)
+                    endDuck()
                 }
 
                 override fun onError(utteranceId: String) {
                     utteranceCompletions.remove(utteranceId)?.complete(Unit)
+                    endDuck()
                 }
             })
             ttsInitialized.complete(Unit)
@@ -43,6 +62,24 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
 
     fun setVoiceEnabled(on: Boolean) {
         voiceOn = on
+        if (!on) {
+            audioManager.abandonAudioFocusRequest(focusRequest)
+            inFlight.set(0)
+        }
+    }
+
+    private fun beginDuck() {
+        if (!voiceOn) return
+        if (inFlight.getAndIncrement() == 0) {
+            audioManager.requestAudioFocus(focusRequest)
+        }
+    }
+
+    private fun endDuck() {
+        if (inFlight.decrementAndGet() <= 0) {
+            inFlight.set(0)
+            audioManager.abandonAudioFocusRequest(focusRequest)
+        }
     }
 
     private suspend fun say(text: String, flush: Boolean) {
@@ -54,6 +91,7 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
         utteranceCompletions[utteranceId] = deferred
 
         val queueMode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+        beginDuck()
         tts.speak(text, queueMode, null, utteranceId)
 
         try {
@@ -65,8 +103,11 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
 
     private fun sayAsync(text: String, flush: Boolean = false) {
         if (!voiceOn || !ttsInitialized.isCompleted) return
+        val utteranceId = UUID.randomUUID().toString()
+        utteranceCompletions[utteranceId] = CompletableDeferred()
         val queueMode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-        tts.speak(text, queueMode, null, null)
+        beginDuck()
+        tts.speak(text, queueMode, null, utteranceId)
     }
 
     fun beep() {
@@ -105,5 +146,7 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
         tts.stop()
         tts.shutdown()
         beeper.release()
+        audioManager.abandonAudioFocusRequest(focusRequest)
+        inFlight.set(0)
     }
 }

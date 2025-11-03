@@ -97,7 +97,7 @@ fun AppNav() {
         Destination.GeneratePlan.route -> "Generate Plan"
         Destination.Profile.route -> "Profile"
         Destination.ProgramEditor.route -> "Edit Campaign"
-        Destination.Schedule.route -> "Schedule"
+        Destination.Schedule.route -> "Campaign Calendar"
         Destination.Today.route -> "Today’s Quest"
         Destination.Settings.route -> "Coach Settings"
         else -> "InsidePacer"
@@ -292,7 +292,11 @@ fun AppNav() {
                             TodayScreen(onOpenPrograms = { nav.navigate(Destination.Programs.route) })
                         }
                         composable(Destination.Schedule.route) {
-                            ScheduleScreen()
+                            ScheduleScreen(
+                                onOpenPrograms = { nav.navigate(Destination.Programs.route) },
+                                onOpenToday = { nav.navigate(Destination.Today.route) },
+                                onRunToday = { nav.navigate(Destination.Today.route) }
+                            )
                         }
                         composable(Destination.Profile.route) {
                             ProfileScreen()
@@ -315,7 +319,7 @@ fun drawerLabelFor(destination: Destination) = when (destination) {
     Destination.Programs -> "Campaigns"
     Destination.GeneratePlan -> "Generate Plan"
     Destination.Profile -> "Profile"
-    Destination.Schedule -> "Schedule"
+    Destination.Schedule -> "Campaign Calendar"
     Destination.Today -> "Today’s Quest"
     Destination.Settings -> "Settings"
     else -> destination.route.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
