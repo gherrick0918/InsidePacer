@@ -157,7 +157,7 @@ class CuePlayer(
         scope.cancel()
     }
 
-    private suspend fun playBeep(durationMs: Int) {
+    private suspend fun playBeep(durationMs: Int = BEEP_DURATION_MS) {
         beeper.startTone(ToneGenerator.TONE_CDMA_PIP, durationMs)
         delay(durationMs.toLong())
     }
