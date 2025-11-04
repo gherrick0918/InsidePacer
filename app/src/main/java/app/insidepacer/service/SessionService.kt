@@ -67,7 +67,7 @@ class SessionService : Service() {
     override fun onCreate() {
         super.onCreate()
         cuePlayer = CuePlayer(applicationContext)
-        scheduler = SessionScheduler(cuePlayer, scope)
+        scheduler = SessionScheduler(applicationContext, cuePlayer, scope)
         sessionRepo = SessionRepo(applicationContext)
         progressRepo = ProgramProgressRepo.getInstance(applicationContext)
         ensureChannel()
@@ -109,8 +109,7 @@ class SessionService : Service() {
         val state = scheduler.state.value
         startForeground(NOTIFICATION_ID, buildNotification(state))
         scheduler.start(segments, currentUnits, preChange) { startMs, endMs, elapsedSec, aborted ->
-            scope.launch {
-                logSession(startMs, endMs, elapsedSec, aborted)
+            scope.launch {                logSession(startMs, endMs, elapsedSec, aborted)
                 if (!aborted) {
                     markDone()
                 }
@@ -205,6 +204,7 @@ class SessionService : Service() {
             .setContentIntent(contentIntent())
             .setOngoing(isActive)
             .setOnlyAlertOnce(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setStyle(MediaStyle())
             .addAction(
                 if (isActive) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,

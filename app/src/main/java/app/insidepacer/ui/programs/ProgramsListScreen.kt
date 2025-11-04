@@ -1,124 +1,99 @@
 package app.insidepacer.ui.programs
 
-import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
-import app.insidepacer.data.ProgramExport
 import app.insidepacer.data.ProgramPrefs
-import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.ProgramRepo
 import app.insidepacer.domain.Program
-import kotlinx.coroutines.launch
+import androidx.compose.material3.MaterialTheme.colorScheme
 
 @Composable
 fun ProgramsListScreen(
     onNew: () -> Unit,
     onEdit: (String) -> Unit,
     onOpenToday: () -> Unit,
-    onGenerate: () -> Unit
+    onGenerate: (String?) -> Unit
 ) {
     val ctx = LocalContext.current
     val repo = remember { ProgramRepo(ctx) }
     val prefs = remember { ProgramPrefs(ctx) }
-    val progRepo = remember { ProgramProgressRepo.getInstance(ctx) }
-    val scope = rememberCoroutineScope()
+    val programs by repo.programs.collectAsState()
+    val activeId: String? by prefs.activeProgramId.collectAsState(initial = null)
 
-    var items by remember { mutableStateOf(emptyList<Program>()) }
-    val activeId by prefs.activeProgramId.collectAsState(initial = null)
-    val progress by progRepo.progress.collectAsState()
-
-    fun refresh() { items = repo.loadAll() }
-    LaunchedEffect(Unit) { refresh() }
-
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { refresh() }) { Text("Refresh") }
-            Spacer(Modifier.width(4.dp))
-            TextButton(onClick = onGenerate) { Text("Generate plan") }
-            Spacer(Modifier.width(4.dp))
-            TextButton(onClick = onNew) { Text("New") }
-            Spacer(Modifier.width(4.dp))
-            TextButton(onClick = onOpenToday) { Text("Today") }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Campaigns", style = MaterialTheme.typography.titleLarge)
+            Row {
+                TextButton(onClick = onNew) { Text("New") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = { onGenerate(null) }) { Text("Generate") }
+            }
         }
-        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(programs) { program ->
+                ProgramRow(program, program.id == activeId, onEdit, onOpenToday) { onGenerate(program.id) }
+            }
+        }
+    }
+}
 
-        if (items.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No programs yet") }
-        } else {
-            LazyColumn {
-                items(items) { p ->
-                    val isActive = p.id == activeId
-                    val doneCount = progress.firstOrNull { it.programId == p.id }?.doneEpochDays?.size ?: 0
-                    val totalCount = p.weeks * p.daysPerWeek
-
-                    ListItem(
-                        headlineContent = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(p.name)
-                                if (isActive) {
-                                    Spacer(Modifier.width(8.dp))
-                                    Icon(
-                                        Icons.Default.Star,
-                                        contentDescription = "Active program",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        },
-                        supportingContent = {
-                            Text("Starts epochDay ${p.startEpochDay} • $doneCount / $totalCount days completed")
-                        },
-                        trailingContent = {
-                            Row {
-                                TextButton(onClick = { onEdit(p.id) }) { Text("Edit") }
-                                TextButton(onClick = { scope.launch { prefs.setActiveProgramId(p.id) } }) { Text("Set active") }
-                                TextButton(onClick = {
-                                    val file = ProgramExport(ctx).exportCsv(p)
-                                    val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
-                                    val share = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/csv"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    ctx.startActivity(Intent.createChooser(share, "Export program CSV"))
-                                }) { Text("Export") }
-                            }
-                        }
-                    )
-                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-                }
+@Composable
+private fun ProgramRow(
+    program: Program,
+    isActive: Boolean,
+    onEdit: (String) -> Unit,
+    onOpenToday: () -> Unit,
+    onRecalculate: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(program.name, fontWeight = FontWeight.Bold)
+            if (isActive) {
+                Text(" (Active)", color = colorScheme.primary)
+            }
+        }
+        Text("${program.weeks} weeks, ${program.daysPerWeek} days/wk")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { onEdit(program.id) }) { Text("Edit") }
+            OutlinedButton(onClick = onRecalculate) { Text("Recalculate") }
+            if (isActive) {
+                Button(onClick = onOpenToday) { Text("Today’s Quest") }
             }
         }
     }

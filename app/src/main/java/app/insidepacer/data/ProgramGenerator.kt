@@ -3,6 +3,7 @@ package app.insidepacer.data
 import app.insidepacer.domain.Program
 import app.insidepacer.domain.Segment
 import app.insidepacer.domain.Template
+import java.time.LocalDate
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -29,7 +30,8 @@ class ProgramGenerator(
         name: String,
         weeks: Int,
         inx: Input,
-        overwriteProgramId: String? = null
+        overwriteProgramId: String? = null,
+        recalculate: Boolean = false
     ): Output {
         require(inx.speeds.isNotEmpty()) { "At least one speed is required" }
 
@@ -55,15 +57,33 @@ class ProgramGenerator(
         val mid = speeds[midIdx]
         val high = speeds[hiIdx]
 
-        val grid = MutableList(weeksClamped) { MutableList<String?>(days) { null } }
+        val grid = MutableList(weeksClamped) { MutableList<String?>(7) { null } }
         val templates = mutableListOf<Template>()
+
+        val todayEpoch = LocalDate.now().toEpochDay()
+        val existingProgram = overwriteProgramId?.let { programRepo.get(it) }
 
         for (w in 0 until weeksClamped) {
             val weekProgress = if (weeksClamped <= 1) 0.0 else w.toDouble() / (weeksClamped - 1)
             val targetMin = minMin + (maxMin - minMin) * weekProgress
+            val trainingDays = selectDays(days)
+            var trainingDayIndex = 0
 
-            for (d in 0 until days) {
-                val kind = selectKind(level = inx.level, dayOrder = d, daysPerWeek = days)
+            for (d in 0 until 7) {
+                val dayEpoch = start + (w * 7) + d
+                if (recalculate && existingProgram != null && dayEpoch < todayEpoch && w < existingProgram.weeks && d < 7) {
+                    if (d < (existingProgram.grid.getOrNull(w)?.size ?: 0)) {
+                        grid[w][d] = existingProgram.grid[w][d]
+                    }
+                    continue
+                }
+
+                if (d !in trainingDays) {
+                    grid[w][d] = null
+                    continue
+                }
+
+                val kind = selectKind(level = inx.level, dayOrder = trainingDayIndex, daysPerWeek = days)
                 val durationMinutes = clampToRange(
                     when (kind) {
                         Kind.EASY -> targetMin * 0.8
@@ -84,10 +104,11 @@ class ProgramGenerator(
                     Kind.LONG -> longEasy(durationMinutes, base, mid)
                 }
 
-                val templateName = "W${w + 1} D${d + 1} ${kind.displayName}"
+                val templateName = "W${w + 1} D${trainingDayIndex + 1} ${kind.displayName}"
                 val template = templateRepo.create(templateName, segments)
                 templates += template
                 grid[w][d] = template.id
+                trainingDayIndex++
             }
         }
 
@@ -98,25 +119,33 @@ class ProgramGenerator(
                     name = name.ifBlank { existing.name },
                     startEpochDay = start,
                     weeks = weeksClamped,
-                    daysPerWeek = days,
+                    daysPerWeek = 7, // Always 7 days a week
                     grid = grid.map { it.toList() }
                 )
                 programRepo.save(updated)
                 updated
             } else {
-                val created = programRepo.create(name.ifBlank { "Generated Plan" }, start, weeksClamped, days)
+                val created = programRepo.create(name.ifBlank { "Generated Plan" }, start, weeksClamped, 7)
                     .copy(grid = grid.map { it.toList() })
                 programRepo.save(created)
                 created
             }
         } else {
-            val created = programRepo.create(name.ifBlank { "Generated Plan" }, start, weeksClamped, days)
+            val created = programRepo.create(name.ifBlank { "Generated Plan" }, start, weeksClamped, 7)
                 .copy(grid = grid.map { it.toList() })
             programRepo.save(created)
             created
         }
 
         return Output(program, templates)
+    }
+
+    private fun selectDays(daysPerWeek: Int): List<Int> {
+        if (daysPerWeek >= 7) return (0..6).toList()
+        // Simple random picker. A more sophisticated version could try to space them out.
+        val allDays = (0..6).toMutableList()
+        allDays.shuffle()
+        return allDays.take(daysPerWeek).sorted()
     }
 
     private fun clampToRange(value: Double, minValue: Double, maxValue: Double): Double {

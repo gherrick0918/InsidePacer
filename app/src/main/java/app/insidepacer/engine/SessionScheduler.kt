@@ -1,11 +1,23 @@
 package app.insidepacer.engine
 
+import android.content.Context
+import android.content.Intent
 import app.insidepacer.data.Units
-import app.insidepacer.domain.*
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import app.insidepacer.domain.Segment
+import app.insidepacer.domain.SessionState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SessionScheduler(
+    private val ctx: Context,
     private val cuePlayer: CuePlayer,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ) {
@@ -13,9 +25,6 @@ class SessionScheduler(
     val state: StateFlow<SessionState> = _state
 
     private var job: Job? = null
-
-    @Volatile
-    private var paused = false
 
     @Volatile
     private var timeRemaining = 0
@@ -28,8 +37,9 @@ class SessionScheduler(
         preChangeSeconds: Int = 10,
         onFinish: ((startMs: Long, endMs: Long, elapsedSec: Int, aborted: Boolean) -> Unit)? = null
     ) {
+        if (_state.value.active) return
+
         job?.cancel()
-        paused = false
         this.onFinish = onFinish
         job = scope.launch {
             val startMs = System.currentTimeMillis()
@@ -37,6 +47,9 @@ class SessionScheduler(
             var aborted = true
 
             try {
+                val intent = Intent(ctx, SessionService::class.java)
+                ctx.startService(intent)
+
                 segments.firstOrNull()?.let { cuePlayer.announceStartingSpeed(it.speed, units) }
                 cuePlayer.countdown321(1000)
 
@@ -45,7 +58,7 @@ class SessionScheduler(
                     timeRemaining = seg.seconds
                     _state.value = _state.value.copy(
                         active = true, speed = seg.speed, currentSegment = segIdx,
-                        nextChangeInSec = timeRemaining
+                        nextChangeInSec = timeRemaining, segments = segments
                     )
 
                     while (timeRemaining > 0) {
@@ -58,7 +71,7 @@ class SessionScheduler(
                         if (timeRemaining <= 3) cuePlayer.beep()
 
                         // pause gate
-                        while (paused && isActive) delay(100)
+                        while (_state.value.isPaused && isActive) delay(100)
 
                         delay(1000)
                         timeRemaining--
@@ -77,7 +90,9 @@ class SessionScheduler(
                     if (_state.value.active) { // only invoke if it was running
                         onFinish?.invoke(startMs, endMs, elapsed, aborted)
                     }
-                    _state.value = _state.value.copy(active = false)
+                    _state.value = SessionState()
+                    val intent = Intent(ctx, SessionService::class.java)
+                    ctx.stopService(intent)
                 }
             }
         }
@@ -88,15 +103,15 @@ class SessionScheduler(
     }
 
     fun pause() {
-        paused = true
+        _state.value = _state.value.copy(isPaused = true)
     }
 
     fun resume() {
-        paused = false
+        _state.value = _state.value.copy(isPaused = false)
     }
 
     fun togglePause() {
-        paused = !paused
+        _state.value = _state.value.copy(isPaused = !_state.value.isPaused)
     }
 
     fun skip() {

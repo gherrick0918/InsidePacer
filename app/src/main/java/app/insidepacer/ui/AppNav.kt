@@ -268,12 +268,16 @@ fun AppNav() {
                                 onNew = { nav.navigate(Destination.ProgramEditor.route) },
                                 onEdit = { id -> nav.navigate(Destination.ProgramEditor.buildRoute(id)) },
                                 onOpenToday = { nav.navigate(Destination.Today.route) },
-                                onGenerate = { nav.navigate(Destination.GeneratePlan.route) }
+                                onGenerate = { pid -> nav.navigate(Destination.GeneratePlan.buildRoute(pid)) }
                             )
                         }
 
-                        composable(Destination.GeneratePlan.route) {
-                            GeneratePlanScreen { program ->
+                        composable(
+                            route = Destination.GeneratePlan.route,
+                            arguments = Destination.GeneratePlan.arguments
+                        ) { backStack ->
+                            val pid = backStack.arguments?.getString("pid")
+                            GeneratePlanScreen(programId = pid) { program ->
                                 nav.navigate(Destination.ProgramEditor.buildRoute(program.id)) {
                                     launchSingleTop = true
                                 }

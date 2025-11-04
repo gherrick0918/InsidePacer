@@ -41,6 +41,7 @@ import app.insidepacer.ui.components.RpgSectionHeader
 import app.insidepacer.ui.components.RpgTag
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.round
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,7 +97,7 @@ fun SpeedsScreen(onContinue: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = {
                     input.toDoubleOrNull()?.let {
-                        val new = (speeds + it).distinct().sorted()
+                        val new = (speeds + (round(it * 10.0) / 10.0)).distinct().sorted()
                         scope.launch { repo.setSpeeds(new) }
                     }
                     input = ""
@@ -143,7 +144,7 @@ fun SpeedsScreen(onContinue: () -> Unit) {
                     val generatedSpeeds = mutableListOf<Double>()
                     var current = min
                     while (current <= max) {
-                        generatedSpeeds.add(current)
+                        generatedSpeeds.add(round(current * 10.0) / 10.0)
                         current += inc
                     }
                     val new = (speeds + generatedSpeeds).distinct().sorted()

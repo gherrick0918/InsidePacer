@@ -9,6 +9,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import app.insidepacer.data.Units
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -16,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
     private val tts: TextToSpeech
     private val audioManager = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    private val beeper = ToneGenerator(5, 100)
+    private val beeper = ToneGenerator(AudioManager.STREAM_ALARM, 100)
     @Volatile
     private var voiceOn = true
 
@@ -116,26 +117,29 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
 
     suspend fun countdown321(delayMs: Long = 1000) {
         ttsInitialized.await()
-        beep(); sayAsync("3"); kotlinx.coroutines.delay(delayMs)
-        beep(); sayAsync("2"); kotlinx.coroutines.delay(delayMs)
-        beep(); sayAsync("1"); kotlinx.coroutines.delay(delayMs)
-        sayAsync("Go")
+        beginDuck()
+        beep(); delay(150); sayAsync("3"); delay(delayMs - 150)
+        beep(); delay(150); sayAsync("2"); delay(delayMs - 150)
+        beep(); delay(150); sayAsync("1"); delay(delayMs - 150)
+        say("Go", flush = false) // use say to wait for completion
+        endDuck()
     }
 
     suspend fun announceStartingSpeed(speed: Double, units: Units) {
-        say("First speed is $speed ${units.name}", flush = true)
+        say("First speed is $speed ${units.name.lowercase(Locale.getDefault())}", flush = true)
     }
 
     fun preChange(seconds: Int, nextSpeed: Double? = null, units: Units) {
         if (seconds > 0) {
             val message = "Speed change in $seconds seconds"
-            val nextSpeedMessage = nextSpeed?.let { " to $it ${units.name}" } ?: ""
+            val nextSpeedMessage = nextSpeed?.let { " to $it ${units.name.lowercase(Locale.getDefault())}" } ?: ""
             sayAsync(message + nextSpeedMessage)
         }
     }
 
     fun changeNow(newSpeed: Double, units: Units) {
-        sayAsync("Change speed now to $newSpeed ${units.name}", flush = true)
+        beep()
+        sayAsync("Change speed now to $newSpeed ${units.name.lowercase(Locale.getDefault())}", flush = true)
     }
 
     fun finish() {

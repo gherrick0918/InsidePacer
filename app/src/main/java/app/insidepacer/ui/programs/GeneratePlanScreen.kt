@@ -14,11 +14,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,7 +50,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 @Composable
-fun GeneratePlanScreen(onDone: (Program) -> Unit) {
+fun GeneratePlanScreen(programId: String?, onDone: (Program) -> Unit) {
     val ctx = LocalContext.current
     val profileRepo = remember { ProfileRepo(ctx) }
     val programRepo = remember { ProgramRepo(ctx) }
@@ -66,6 +68,16 @@ fun GeneratePlanScreen(onDone: (Program) -> Unit) {
     var status by remember { mutableStateOf<String?>(null) }
     var overwriteByName by remember { mutableStateOf(true) }
 
+    LaunchedEffect(programId) {
+        programId?.let {
+            val program = programRepo.get(it)
+            if (program != null) {
+                planName = program.name
+                weeksText = program.weeks.toString()
+            }
+        }
+    }
+
     val heightMeters = profile.heightCm / 100.0
     val bmi = if (heightMeters > 0) profile.weightKg / heightMeters.pow(2.0) else 0.0
     val risk = profile.age >= 55 || bmi >= 30.0
@@ -78,8 +90,8 @@ fun GeneratePlanScreen(onDone: (Program) -> Unit) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Generate campaign", style = MaterialTheme.typography.titleMedium)
-        status?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        Text(if (programId == null) "Generate campaign" else "Recalculate campaign", style = typography.titleMedium)
+        status?.let { Text(it, color = colorScheme.primary) }
 
         Text("Profile snapshot", fontWeight = FontWeight.Bold)
         if (useImperial) {
@@ -122,7 +134,7 @@ fun GeneratePlanScreen(onDone: (Program) -> Unit) {
                 }
         )
         if (speeds.isEmpty()) {
-            Text("Add speeds on the Pace Registry screen to enable plan generation.", color = MaterialTheme.colorScheme.error)
+            Text("Add speeds on the Pace Registry screen to enable plan generation.", color = colorScheme.error)
         }
 
         OutlinedTextField(
@@ -147,7 +159,7 @@ fun GeneratePlanScreen(onDone: (Program) -> Unit) {
                     scope.launch {
                         try {
                             val weeksValue = weeksText.toIntOrNull() ?: 8
-                            val overwriteId = if (overwriteByName) programRepo.findByName(planName)?.id else null
+                            val overwriteId = programId ?: (if (overwriteByName) programRepo.findByName(planName)?.id else null)
                             val output = generator.generate(
                                 name = planName,
                                 weeks = weeksValue,
@@ -162,7 +174,8 @@ fun GeneratePlanScreen(onDone: (Program) -> Unit) {
                                     heightCm = profile.heightCm,
                                     weightKg = profile.weightKg
                                 ),
-                                overwriteProgramId = overwriteId
+                                overwriteProgramId = overwriteId,
+                                recalculate = programId != null
                             )
                             prefs.setActiveProgramId(output.program.id)
                             status = "Created ${output.program.name} (${output.program.weeks} weeks)."
@@ -172,7 +185,7 @@ fun GeneratePlanScreen(onDone: (Program) -> Unit) {
                         }
                     }
                 }
-            ) { Text("Generate & Save") }
+            ) { Text(if (programId == null) "Generate & Save" else "Recalculate & Save") }
 
             Spacer(Modifier.width(8.dp))
             TextButton(onClick = { weeksText = "8"; planName = "Adaptive Plan" }) { Text("Reset fields") }

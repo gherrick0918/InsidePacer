@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("kotlin-parcelize")
 }
 
 android {
@@ -13,8 +14,8 @@ android {
         applicationId = "app.insidepacer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.3"
+        versionCode = 9
+        versionName = "1.0.9"
     }
 
     buildFeatures { compose = true }
@@ -32,6 +33,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.foundation:foundation-layout-android:1.6.7")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.9.3")

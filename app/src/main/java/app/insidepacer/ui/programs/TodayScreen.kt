@@ -36,15 +36,16 @@ import app.insidepacer.data.TemplateRepo
 import app.insidepacer.data.computeStreaks
 import app.insidepacer.data.dayIndexFor
 import app.insidepacer.data.inRange
-import app.insidepacer.service.pauseSession
-import app.insidepacer.service.resumeSession
-import app.insidepacer.service.startSessionService
-import app.insidepacer.service.stopSession
+import app.insidepacer.di.Singleton
+import app.insidepacer.ui.utils.formatSeconds
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun TodayScreen(onOpenPrograms: () -> Unit) {
+    val sessionScheduler = Singleton.sessionScheduler
+    val sessionState by sessionScheduler.state.collectAsState()
+
     val ctx = LocalContext.current
     val prefs = remember { ProgramPrefs(ctx) }
     val programRepo = remember { ProgramRepo(ctx) }
@@ -70,9 +71,6 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
     val preChange by settingsRepo.preChangeSeconds.collectAsState(initial = 10)
     val units by settingsRepo.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
 
-    var running by rememberSaveable { mutableStateOf(false) }
-    var paused by rememberSaveable { mutableStateOf(false) }
-
     when {
         program == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -92,7 +90,8 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
             val d = dayIndex % program.daysPerWeek
             val templateId = program.grid[w][d]
             val epochDay = program.startEpochDay + dayIndex
-            val templateName = templateId?.let { templateRepo.get(it)?.name } ?: "Rest"
+            val template = templateId?.let { templateRepo.get(it) }
+            val templateName = template?.name ?: "Rest"
 
             val streaks = program.let { computeStreaks(it, progressRepo) }
 
@@ -131,6 +130,12 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                     label = { Text("Streak ${streakValue.current} • Best ${streakValue.longest}") }
                 )
 
+                template?.let {
+                    Spacer(Modifier.height(8.dp))
+                    val totalSeconds = it.segments.sumOf { it.seconds }
+                    Text("Workout duration: ${formatSeconds(totalSeconds)}")
+                }
+
                 Spacer(Modifier.height(16.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -139,43 +144,39 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                             if (templateId == null) return@Button
                             val segments = templateRepo.get(templateId)?.segments ?: emptyList()
                             if (segments.isEmpty()) return@Button
-                            ctx.startSessionService(
+                            sessionScheduler.start(
                                 segments = segments,
                                 units = units,
-                                preChange = preChange,
-                                voiceOn = voiceEnabled,
-                                programId = program.id,
-                                epochDay = epochDay
+                                preChangeSeconds = preChange,
+                                onFinish = { _, _, _, aborted ->
+                                    if (!aborted) {
+                                        progressRepo.markDone(program.id, epochDay)
+                                    }
+                                }
                             )
-                            running = true
-                            paused = false
                         },
-                        enabled = !running && templateId != null
+                        enabled = templateId != null && !sessionState.active
                     ) {
                         Text(if (isDone) "Run again" else if (selectedDate == LocalDate.now()) "Run today" else "Run this day")
                     }
 
-                    OutlinedButton(
-                        onClick = {
-                            if (!running) return@OutlinedButton
-                            if (paused) {
-                                ctx.resumeSession()
-                            } else {
-                                ctx.pauseSession()
-                            }
-                            paused = !paused
-                        },
-                        enabled = running
-                    ) { Text(if (paused) "Resume" else "Pause") }
+                    if (sessionState.active) {
+                         OutlinedButton(
+                            onClick = { sessionScheduler.togglePause() },
+                        ) { Text(if (sessionState.isPaused) "Resume" else "Pause") }
 
-                    OutlinedButton(
-                        onClick = {
-                            ctx.stopSession()
-                            running = false
-                            paused = false
-                        },
-                        enabled = running
-                    ) { Text("Stop") }
+                        OutlinedButton(
+                            onClick = { sessionScheduler.stop() },
+                        ) { Text("Stop") }
+                    }
+                }
+
+                if (sessionState.active) {
+                    val totalDuration = sessionState.segments.sumOf { it.seconds }
+                    val remaining = totalDuration - sessionState.elapsedSec
+                    Text("Session in progress: ${formatSeconds(sessionState.elapsedSec)} / ${formatSeconds(totalDuration)}")
+                    Text("Time left: ${formatSeconds(remaining)}")
+                    Text("Current Speed: ${sessionState.speed}, next change in ${formatSeconds(sessionState.nextChangeInSec)}")
                 }
 
                 if (templateId == null) {
