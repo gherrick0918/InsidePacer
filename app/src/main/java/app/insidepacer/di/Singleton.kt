@@ -1,6 +1,7 @@
 package app.insidepacer.di
 
 import android.content.Context
+import app.insidepacer.engine.CueDuckingManager
 import app.insidepacer.engine.CuePlayer
 import app.insidepacer.engine.SessionScheduler
 
@@ -18,7 +19,8 @@ object Singleton {
                 cached
             } else {
                 val appContext = context.applicationContext
-                SessionScheduler(appContext, CuePlayer(appContext)).also {
+                val duckingManager = CueDuckingManager(appContext)
+                SessionScheduler(appContext, CuePlayer(appContext, duckingManager)).also {
                     _sessionScheduler = it
                 }
             }

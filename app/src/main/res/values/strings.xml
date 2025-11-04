@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">InsidePacer</string>
+    <string name="session_action_pause">Pause</string>
+    <string name="session_action_resume">Resume</string>
+    <string name="session_action_stop">Stop</string>
+    <string name="session_action_skip">Skip</string>
+    <string name="session_status_paused">Paused</string>
+    <string name="session_status_running">In session</string>
+    <string name="session_status_ready">Ready</string>
+    <string name="session_ready">Ready for your next session</string>
 </resources>
