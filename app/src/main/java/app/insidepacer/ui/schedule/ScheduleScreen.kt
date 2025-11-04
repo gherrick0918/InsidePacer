@@ -32,6 +32,8 @@ import app.insidepacer.data.ProgramPrefs
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.ProgramRepo
 import app.insidepacer.data.TemplateRepo
+import app.insidepacer.data.templateIdAt
+import app.insidepacer.data.withTemplateId
 import app.insidepacer.data.dayIndexFor
 import app.insidepacer.data.inRange
 import app.insidepacer.ui.components.CalendarView
@@ -84,7 +86,13 @@ fun ScheduleScreen(
             daysPerWeek = program.daysPerWeek,
             isPlanned = { epoch ->
                 val idx = dayIndexFor(program, epoch)
-                inRange(program, idx) && program.grid[idx / program.daysPerWeek][idx % program.daysPerWeek] != null
+                if (!inRange(program, idx)) {
+                    false
+                } else {
+                    val week = idx / program.daysPerWeek
+                    val day = idx % program.daysPerWeek
+                    program.templateIdAt(week, day) != null
+                }
             },
             isDone = { epoch ->
                 progress.firstOrNull { it.programId == program.id }?.doneEpochDays?.contains(epoch) == true
@@ -102,7 +110,7 @@ fun ScheduleScreen(
         val inRangeDay = inRange(program, idx)
         val w = if (inRangeDay) idx / program.daysPerWeek else -1
         val d = if (inRangeDay) idx % program.daysPerWeek else -1
-        val tid = if (inRangeDay) program.grid[w][d] else null
+        val tid = if (inRangeDay) program.templateIdAt(w, d) else null
         val isToday = epoch == LocalDate.now().toEpochDay()
         val isDone = progressRepo.isDone(program.id, epoch)
 
@@ -124,9 +132,7 @@ fun ScheduleScreen(
                         }) { Text("Assign…") }
                         OutlinedButton(onClick = {
                             if (inRangeDay) {
-                                val row = program.grid[w].toMutableList(); row[d] = null
-                                val grid = program.grid.toMutableList(); grid[w] = row
-                                progRepo.save(program.copy(grid = grid))
+                                progRepo.save(program.withTemplateId(w, d, null))
                                 menuForEpoch = null
                             }
                         }) { Text("Set Rest") }
@@ -155,9 +161,7 @@ fun ScheduleScreen(
                 if (inRange(program, idx)) {
                     val w = idx / program.daysPerWeek
                     val d = idx % program.daysPerWeek
-                    val row = program.grid[w].toMutableList(); row[d] = chosenId
-                    val grid = program.grid.toMutableList(); grid[w] = row
-                    progRepo.save(program.copy(grid = grid))
+                    progRepo.save(program.withTemplateId(w, d, chosenId))
                 }
                 pickForEpoch = null
             }
