@@ -36,6 +36,7 @@ import app.insidepacer.data.TemplateRepo
 import app.insidepacer.data.computeStreaks
 import app.insidepacer.data.dayIndexFor
 import app.insidepacer.data.inRange
+import app.insidepacer.data.templateIdAt
 import app.insidepacer.di.Singleton
 import app.insidepacer.service.startSessionService
 import app.insidepacer.ui.utils.formatSeconds
@@ -88,7 +89,7 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
         else -> {
             val w = dayIndex / program.daysPerWeek
             val d = dayIndex % program.daysPerWeek
-            val templateId = program.grid[w][d]
+            val templateId = program.templateIdAt(w, d)
             val epochDay = program.startEpochDay + dayIndex
             val template = templateId?.let { templateRepo.get(it) }
             val templateName = template?.name ?: "Rest"

@@ -18,7 +18,7 @@ class ProgramExport(private val ctx: Context) {
             repeat(program.daysPerWeek) { d ->
                 val epoch = program.startEpochDay + idx
                 val dayStr = LocalDate.ofEpochDay(epoch).toString()
-                val tid = program.grid[w][d]
+                val tid = program.templateIdAt(w, d)
                 val name = tid?.let { tplRepo.get(it)?.name } ?: ""
                 val rest = (tid == null)
                 val done = progress.isDone(program.id, epoch)
