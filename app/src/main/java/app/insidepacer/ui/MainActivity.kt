@@ -8,8 +8,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import app.insidepacer.di.Singleton
-import app.insidepacer.engine.CuePlayer
-import app.insidepacer.engine.SessionScheduler
 import app.insidepacer.ui.theme.AppTheme
 
 class MainActivity : ComponentActivity() {
@@ -21,8 +19,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val cuePlayer = CuePlayer(this)
-        Singleton.sessionScheduler = SessionScheduler(this, cuePlayer)
+        Singleton.getSessionScheduler(this)
         enableEdgeToEdge()
         setContent { AppTheme { AppNav() } }
 

@@ -45,5 +45,4 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.media:media:1.7.0") // NotificationCompat.MediaStyle
 }

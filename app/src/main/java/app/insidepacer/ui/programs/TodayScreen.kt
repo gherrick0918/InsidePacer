@@ -43,10 +43,9 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun TodayScreen(onOpenPrograms: () -> Unit) {
-    val sessionScheduler = Singleton.sessionScheduler
-    val sessionState by sessionScheduler.state.collectAsState()
-
     val ctx = LocalContext.current
+    val sessionScheduler = remember { Singleton.getSessionScheduler(ctx) }
+    val sessionState by sessionScheduler.state.collectAsState()
     val prefs = remember { ProgramPrefs(ctx) }
     val programRepo = remember { ProgramRepo(ctx) }
     val templateRepo = remember { TemplateRepo(ctx) }

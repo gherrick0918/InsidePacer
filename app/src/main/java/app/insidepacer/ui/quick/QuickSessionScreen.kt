@@ -50,10 +50,9 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QuickSessionScreen() {
-    val sessionScheduler = Singleton.sessionScheduler
-    val sessionState by sessionScheduler.state.collectAsState()
-
     val ctx = LocalContext.current
+    val sessionScheduler = remember { Singleton.getSessionScheduler(ctx) }
+    val sessionState by sessionScheduler.state.collectAsState()
     val scope = rememberCoroutineScope()
     val settingsRepo = remember { SettingsRepo(ctx) }
     val units by settingsRepo.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
