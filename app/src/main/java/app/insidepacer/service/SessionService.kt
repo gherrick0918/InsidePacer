@@ -124,6 +124,7 @@ class SessionService : Service() {
                     markDone()
                 }
                 ServiceCompat.stopForeground(this@SessionService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                clearNotification()
                 stopSelf()
             }
         }
@@ -131,6 +132,7 @@ class SessionService : Service() {
 
     private fun handleStop() {
         scheduler.stop()
+        clearNotification()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -202,14 +204,15 @@ class SessionService : Service() {
         val isActive = state.active
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("InsidePacer")
-            .setContentText(
-                if (isActive) {
-                    "Speed ${state.speed} • Next in ${state.nextChangeInSec}s • Elapsed ${state.elapsedSec}s"
-                } else {
-                    "Ready"
+            .setContentTitle(
+                when {
+                    !isActive -> "InsidePacer"
+                    state.isPaused -> "InsidePacer – Paused"
+                    else -> "InsidePacer – In session"
                 }
             )
+            .setContentText(primaryNotificationText(state))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(detailNotificationText(state)))
             .setContentIntent(contentIntent())
             .setOngoing(isActive)
             .setOnlyAlertOnce(true)
@@ -227,9 +230,8 @@ class SessionService : Service() {
     }
 
     private fun updateNotification(state: SessionState) {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val notification = buildNotification(state)
         if (state.active) {
+            val notification = buildNotification(state)
             ServiceCompat.startForeground(
                 this,
                 NOTIFICATION_ID,
@@ -237,7 +239,7 @@ class SessionService : Service() {
                 foregroundType()
             )
         } else {
-            nm.notify(NOTIFICATION_ID, notification)
+            clearNotification()
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -245,4 +247,68 @@ class SessionService : Service() {
 
     private fun foregroundType(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0
+
+    private fun primaryNotificationText(state: SessionState): String {
+        if (!state.active) return "Ready"
+
+        val segmentSummary = state.segments.takeIf { it.isNotEmpty() }?.let {
+            val current = (state.currentSegment + 1).coerceIn(1, it.size)
+            "Segment $current/${it.size}"
+        }
+
+        val elapsed = formatDuration(state.elapsedSec)
+        val speed = if (state.isPaused) {
+            "Paused at ${formatSpeed(state.speed)}"
+        } else {
+            "Speed ${formatSpeed(state.speed)}"
+        }
+
+        return buildString {
+            append(speed)
+            if (segmentSummary != null) {
+                append(" • ")
+                append(segmentSummary)
+            }
+            append(" • Elapsed $elapsed")
+        }
+    }
+
+    private fun detailNotificationText(state: SessionState): CharSequence {
+        if (!state.active) return "Ready to start your next session."
+
+        val primary = primaryNotificationText(state)
+        val nextChange = when {
+            state.isPaused -> "Resume to continue"
+            state.upcomingSpeed != null -> "Next ${formatSpeed(state.upcomingSpeed!!)} in ${formatDuration(state.nextChangeInSec)}"
+            state.nextChangeInSec > 0 -> "Hold for ${formatDuration(state.nextChangeInSec)}"
+            else -> "Finishing up"
+        }
+
+        return "$primary\n$nextChange"
+    }
+
+    private fun formatSpeed(speed: Double): String {
+        val unit = when (currentUnits) {
+            Units.MPH -> "mph"
+            Units.KMH -> "km/h"
+        }
+        return String.format("%.1f %s", speed, unit)
+    }
+
+    private fun formatDuration(seconds: Int): String {
+        if (seconds <= 0) return "0:00"
+        val hours = seconds / 3600
+        val minutes = (seconds % 3600) / 60
+        val secs = seconds % 60
+        return if (hours > 0) {
+            String.format("%d:%02d:%02d", hours, minutes, secs)
+        } else {
+            String.format("%d:%02d", minutes, secs)
+        }
+    }
+
+    private fun clearNotification() {
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(NOTIFICATION_ID)
+    }
 }
