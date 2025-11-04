@@ -1,5 +1,6 @@
 package app.insidepacer.engine
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -44,6 +45,9 @@ class SessionService : Service() {
                     val notification = NotificationCompat.Builder(this@SessionService, CHANNEL_ID)
                         .setContentTitle("Inside Pacer Session")
                         .setSmallIcon(R.mipmap.ic_launcher)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                        .setCategory(NotificationCompat.CATEGORY_SERVICE)
                         .setContentIntent(
                             PendingIntent.getActivity(
                                 this@SessionService,
@@ -89,8 +93,9 @@ class SessionService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Session Notifications",
-                NotificationManager.IMPORTANCE_DEFAULT // Changed to default to make it pop up
+                NotificationManager.IMPORTANCE_HIGH
             )
+            channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             notificationManager.createNotificationChannel(channel)
         }
     }
