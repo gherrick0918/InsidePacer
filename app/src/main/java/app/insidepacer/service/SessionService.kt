@@ -163,7 +163,7 @@ class SessionService : Service() {
                 NotificationChannel(
                     CHANNEL_ID,
                     "InsidePacer session",
-                    NotificationManager.IMPORTANCE_LOW
+                    NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
                     description = "Active walking session"
                     enableLights(false)
