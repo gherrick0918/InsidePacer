@@ -18,7 +18,10 @@ fun Context.startSessionService(
     programId: String? = null,
     epochDay: Long? = null
 ) {
-    val segJson = json.encodeToString(ListSerializer(Segment.serializer()), segments)
+    val playableSegments = segments.filter { it.seconds > 0 }
+    if (playableSegments.isEmpty()) return
+
+    val segJson = json.encodeToString(ListSerializer(Segment.serializer()), playableSegments)
     val intent = Intent(this, SessionService::class.java)
         .setAction(SessionService.ACTION_START)
         .putExtra(SessionService.EXTRA_SEGMENTS_JSON, segJson)
