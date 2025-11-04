@@ -86,7 +86,7 @@ class SessionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> handleStart(intent)
+            ACTION_START -> handleStart(intent, startId)
             ACTION_STOP -> if (matchesSessionIntent(intent)) handleStop()
             ACTION_SKIP -> if (matchesSessionIntent(intent)) scheduler.skip()
             ACTION_PAUSE -> if (matchesSessionIntent(intent)) scheduler.pause()
@@ -98,13 +98,21 @@ class SessionService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun handleStart(intent: Intent) {
+    private fun handleStart(intent: Intent, startId: Int) {
         if (scheduler.state.value.active) return
-        val segJson = intent.getStringExtra(EXTRA_SEGMENTS_JSON) ?: return
+        val segJson = intent.getStringExtra(EXTRA_SEGMENTS_JSON)
+        if (segJson.isNullOrBlank()) {
+            stopSelfResult(startId)
+            return
+        }
         val segments = runCatching {
             json.decodeFromString(ListSerializer(Segment.serializer()), segJson)
         }.getOrDefault(emptyList())
-        if (segments.isEmpty()) return
+        val playableSegments = segments.filter { it.seconds > 0 }
+        if (playableSegments.isEmpty()) {
+            stopSelfResult(startId)
+            return
+        }
 
         val preChange = intent.getIntExtra(EXTRA_PRECHANGE_SEC, 10)
         val voiceOn = intent.getBooleanExtra(EXTRA_VOICE, true)
@@ -122,10 +130,10 @@ class SessionService : Service() {
             buildNotification(state),
             foregroundType()
         )
-        scheduler.start(segments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
+        scheduler.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
             val sessionId = scheduler.state.value.sessionId ?: return@start
             scope.launch {
-                logSession(sessionId, programId, startMs, endMs, segments, elapsedSec, aborted)
+                logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
                 if (!aborted) {
                     if (programId != null && epochDay != null) {
                         progressRepo.markDone(programId, epochDay)
