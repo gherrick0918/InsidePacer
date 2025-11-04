@@ -96,7 +96,9 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
             val streaks = program.let { computeStreaks(it, progressRepo) }
 
             Column(
-                Modifier.fillMaxSize().padding(16.dp),
+                Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

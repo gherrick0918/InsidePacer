@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,7 +37,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.insidepacer.data.SettingsRepo
@@ -176,7 +174,7 @@ fun QuickSessionScreen() {
             horizontalArrangement = Arrangement.Center
         ) {
             if (sessionState.active) {
-                Button(
+                OutlinedButton(
                     onClick = { sessionScheduler.togglePause() },
                 ) { Text(if (sessionState.isPaused) "Resume" else "Pause") }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -194,7 +192,6 @@ fun QuickSessionScreen() {
                         )
                     },
                     enabled = segments.isNotEmpty(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Green)
                 ) {
                     Icon(Icons.Default.PlayArrow, "")
                     Spacer(modifier = Modifier.width(8.dp))

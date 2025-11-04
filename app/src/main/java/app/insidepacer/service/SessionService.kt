@@ -18,12 +18,15 @@ import app.insidepacer.R
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.SessionRepo
 import app.insidepacer.data.Units
+import app.insidepacer.di.Singleton
 import app.insidepacer.domain.Segment
 import app.insidepacer.domain.SessionLog
 import app.insidepacer.domain.SessionState
-import app.insidepacer.di.Singleton
 import app.insidepacer.engine.SessionScheduler
 import app.insidepacer.ui.MainActivity
+import java.util.Locale
+import java.util.UUID
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,9 +36,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import java.util.UUID
-import java.util.Locale
-import kotlin.math.roundToInt
 
 class SessionService : Service() {
     companion object {
@@ -70,10 +70,6 @@ class SessionService : Service() {
     private lateinit var notificationManager: NotificationManager
 
     private val json = Json { ignoreUnknownKeys = true }
-
-    private var currentSegments: List<Segment> = emptyList()
-    private var currentProgramId: String? = null
-    private var currentEpochDay: Long? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -120,9 +116,6 @@ class SessionService : Service() {
         val units = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
 
         scheduler.setVoiceEnabled(voiceOn)
-        currentSegments = segments
-        currentProgramId = programId
-        currentEpochDay = epochDay
         val state = scheduler.state.value
         ServiceCompat.startForeground(
             this,
@@ -130,11 +123,14 @@ class SessionService : Service() {
             buildNotification(state),
             foregroundType()
         )
-        scheduler.start(segments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
+        val sessionId = UUID.randomUUID().toString()
+        scheduler.start(segments, units, preChange, sessionId) { startMs, endMs, elapsedSec, aborted ->
             scope.launch {
-                logSession(startMs, endMs, elapsedSec, aborted)
+                logSession(sessionId, programId, startMs, endMs, segments, elapsedSec, aborted)
                 if (!aborted) {
-                    markDone()
+                    if (programId != null && epochDay != null) {
+                        progressRepo.markDone(programId, epochDay)
+                    }
                 }
             }
         }
@@ -144,12 +140,20 @@ class SessionService : Service() {
         scheduler.stop()
     }
 
-    private suspend fun logSession(startMs: Long, endMs: Long, elapsedSec: Int, aborted: Boolean) {
+    private suspend fun logSession(
+        sessionId: String,
+        programId: String?,
+        startMs: Long,
+        endMs: Long,
+        segments: List<Segment>,
+        elapsedSec: Int,
+        aborted: Boolean
+    ) {
         withContext(Dispatchers.IO) {
-            val realized = sessionRepo.realizedSegments(currentSegments, elapsedSec)
+            val realized = sessionRepo.realizedSegments(segments, elapsedSec)
             val log = SessionLog(
-                id = UUID.randomUUID().toString(),
-                programId = currentProgramId,
+                id = sessionId,
+                programId = programId,
                 startMillis = startMs,
                 endMillis = endMs,
                 totalSeconds = elapsedSec,
@@ -158,12 +162,6 @@ class SessionService : Service() {
             )
             sessionRepo.append(log)
         }
-    }
-
-    private fun markDone() {
-        val pid = currentProgramId ?: return
-        val epoch = currentEpochDay ?: return
-        progressRepo.markDone(pid, epoch)
     }
 
     override fun onDestroy() {
