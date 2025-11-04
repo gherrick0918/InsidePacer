@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 class SessionScheduler(
     private val ctx: Context,
@@ -38,12 +39,15 @@ class SessionScheduler(
         preChangeSeconds: Int = 10,
         onFinish: ((startMs: Long, endMs: Long, elapsedSec: Int, aborted: Boolean) -> Unit)? = null
     ) {
+        if (segments.isEmpty()) return
         if (_state.value.active) return
 
         job?.cancel()
         this.onFinish = onFinish
+        val sessionId = UUID.randomUUID().toString()
         job = scope.launch {
             val startMs = System.currentTimeMillis()
+            val totalDuration = segments.sumOf { it.seconds }
             var elapsed = 0
             var aborted = true
 
@@ -51,49 +55,92 @@ class SessionScheduler(
                 val intent = Intent(ctx, SessionService::class.java).setAction(SessionService.ACTION_OBSERVE)
                 ctx.startService(intent)
 
+                _state.value = SessionState(
+                    active = true,
+                    isPaused = false,
+                    elapsedSec = 0,
+                    currentSegment = 0,
+                    nextChangeInSec = segments.firstOrNull()?.seconds ?: 0,
+                    speed = segments.firstOrNull()?.speed ?: 0.0,
+                    upcomingSpeed = segments.getOrNull(1)?.speed,
+                    segments = segments,
+                    sessionId = sessionId,
+                    sessionStartTime = startMs,
+                    totalDurationSec = totalDuration,
+                    remainingSec = totalDuration,
+                    currentSegmentLabel = segmentLabel(0, segments, units),
+                    units = units
+                )
+
                 segments.firstOrNull()?.let { cuePlayer.announceStartingSpeed(it.speed, units) }
                 cuePlayer.countdown321(1000)
 
                 var segIdx = 0
                 for (seg in segments) {
                     timeRemaining = seg.seconds
-                    _state.value = _state.value.copy(
-                        active = true, speed = seg.speed, currentSegment = segIdx,
-                        nextChangeInSec = timeRemaining, segments = segments
+                    updateState(
+                        sessionId = sessionId,
+                        startMs = startMs,
+                        totalDuration = totalDuration,
+                        elapsed = elapsed,
+                        currentSegmentIndex = segIdx,
+                        currentSegment = seg,
+                        segments = segments,
+                        units = units,
+                        nextChange = timeRemaining
                     )
 
-                    while (timeRemaining > 0) {
+                    while (timeRemaining > 0 && isActive) {
                         val nextSpeed = segments.getOrNull(segIdx + 1)?.speed
-                        // pre-change cue once, when crossing the threshold
                         if (timeRemaining == preChangeSeconds && nextSpeed != null) {
                             cuePlayer.preChange(preChangeSeconds, nextSpeed, units)
                         }
 
                         if (timeRemaining <= 3) cuePlayer.beep()
 
-                        // pause gate
                         while (_state.value.isPaused && isActive) delay(100)
 
                         delay(1000)
                         timeRemaining--
                         elapsed++
-                        _state.value =
-                            _state.value.copy(elapsedSec = elapsed, nextChangeInSec = timeRemaining)
+                        updateState(
+                            sessionId = sessionId,
+                            startMs = startMs,
+                            totalDuration = totalDuration,
+                            elapsed = elapsed,
+                            currentSegmentIndex = segIdx,
+                            currentSegment = seg,
+                            segments = segments,
+                            units = units,
+                            nextChange = timeRemaining
+                        )
                     }
                     segments.getOrNull(segIdx + 1)?.let { cuePlayer.changeNow(it.speed, units) }
                     segIdx++
                 }
                 aborted = false
+                updateState(
+                    sessionId = sessionId,
+                    startMs = startMs,
+                    totalDuration = totalDuration,
+                    elapsed = elapsed,
+                    currentSegmentIndex = segments.lastIndex,
+                    currentSegment = segments.lastOrNull(),
+                    segments = segments,
+                    units = units,
+                    nextChange = 0
+                )
                 if (isActive) cuePlayer.finish()
             } finally {
                 withContext(NonCancellable) {
                     val endMs = System.currentTimeMillis()
-                    if (_state.value.active) { // only invoke if it was running
+                    val currentState = _state.value
+                    if (currentState.active && currentState.sessionId == sessionId) {
                         onFinish?.invoke(startMs, endMs, elapsed, aborted)
                     }
                     _state.value = SessionState()
-                    val intent = Intent(ctx, SessionService::class.java)
-                    ctx.stopService(intent)
+                    val stopIntent = Intent(ctx, SessionService::class.java)
+                    ctx.stopService(stopIntent)
                 }
             }
         }
@@ -108,19 +155,57 @@ class SessionScheduler(
     }
 
     fun pause() {
+        if (!_state.value.active) return
         _state.value = _state.value.copy(isPaused = true)
     }
 
     fun resume() {
+        if (!_state.value.active) return
         _state.value = _state.value.copy(isPaused = false)
     }
 
     fun togglePause() {
+        if (!_state.value.active) return
         _state.value = _state.value.copy(isPaused = !_state.value.isPaused)
     }
 
     fun skip() {
         if (!_state.value.active) return
         timeRemaining = 0
+    }
+
+    private fun updateState(
+        sessionId: String,
+        startMs: Long,
+        totalDuration: Int,
+        elapsed: Int,
+        currentSegmentIndex: Int,
+        currentSegment: Segment?,
+        segments: List<Segment>,
+        units: Units,
+        nextChange: Int
+    ) {
+        val remaining = (totalDuration - elapsed).coerceAtLeast(0)
+        _state.value = _state.value.copy(
+            sessionId = sessionId,
+            active = true,
+            elapsedSec = elapsed,
+            currentSegment = currentSegmentIndex.coerceAtLeast(0),
+            nextChangeInSec = nextChange.coerceAtLeast(0),
+            speed = currentSegment?.speed ?: _state.value.speed,
+            upcomingSpeed = segments.getOrNull(currentSegmentIndex + 1)?.speed,
+            segments = segments,
+            sessionStartTime = startMs,
+            totalDurationSec = totalDuration,
+            remainingSec = remaining,
+            currentSegmentLabel = segmentLabel(currentSegmentIndex, segments, units),
+            units = units
+        )
+    }
+
+    private fun segmentLabel(index: Int, segments: List<Segment>, units: Units): String? {
+        if (segments.isEmpty() || index !in segments.indices) return null
+        val labelNumber = index + 1
+        return "Segment $labelNumber/${segments.size}"
     }
 }

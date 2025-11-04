@@ -28,21 +28,25 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.UUID
+import java.util.Locale
+import kotlin.math.roundToInt
 
 class SessionService : Service() {
     companion object {
-        const val CHANNEL_ID = "session_channel"
+        const val CHANNEL_ID = "insidepacer_sessions"
         const val NOTIFICATION_ID = 42
 
         const val ACTION_START = "app.insidepacer.action.START"
         const val ACTION_STOP = "app.insidepacer.action.STOP"
         const val ACTION_PAUSE = "app.insidepacer.action.PAUSE"
         const val ACTION_RESUME = "app.insidepacer.action.RESUME"
+        const val ACTION_SKIP = "app.insidepacer.action.SKIP"
         const val ACTION_OBSERVE = "app.insidepacer.action.OBSERVE"
 
         const val EXTRA_SEGMENTS_JSON = "segments_json"
@@ -51,28 +55,37 @@ class SessionService : Service() {
         const val EXTRA_UNITS = "units"
         const val EXTRA_PROGRAM_ID = "program_id"
         const val EXTRA_EPOCH_DAY = "epoch_day"
+        const val EXTRA_SESSION_ID = "session_id"
+
+        private const val REQUEST_PAUSE = 1001
+        private const val REQUEST_RESUME = 1002
+        private const val REQUEST_STOP = 1003
+        private const val REQUEST_SKIP = 1004
     }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private lateinit var scheduler: SessionScheduler
     private lateinit var sessionRepo: SessionRepo
     private lateinit var progressRepo: ProgramProgressRepo
+    private lateinit var notificationManager: NotificationManager
 
     private val json = Json { ignoreUnknownKeys = true }
 
     private var currentSegments: List<Segment> = emptyList()
     private var currentProgramId: String? = null
     private var currentEpochDay: Long? = null
-    private var currentUnits: Units = Units.MPH
 
     override fun onCreate() {
         super.onCreate()
         scheduler = Singleton.getSessionScheduler(applicationContext)
         sessionRepo = SessionRepo(applicationContext)
         progressRepo = ProgramProgressRepo.getInstance(applicationContext)
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         ensureChannel()
         scope.launch {
-            scheduler.state.collectLatest { updateNotification(it) }
+            scheduler.state
+                .distinctUntilChanged()
+                .collectLatest { updateNotification(it) }
         }
         scheduler.state.value.takeIf { it.active }?.let { updateNotification(it) }
     }
@@ -80,9 +93,10 @@ class SessionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> handleStart(intent)
-            ACTION_STOP -> handleStop()
-            ACTION_PAUSE -> scheduler.pause()
-            ACTION_RESUME -> scheduler.resume()
+            ACTION_STOP -> if (matchesSessionIntent(intent)) handleStop()
+            ACTION_SKIP -> if (matchesSessionIntent(intent)) scheduler.skip()
+            ACTION_PAUSE -> if (matchesSessionIntent(intent)) scheduler.pause()
+            ACTION_RESUME -> if (matchesSessionIntent(intent)) scheduler.resume()
             ACTION_OBSERVE, null -> {
                 // no-op: observation happens via state collector
             }
@@ -91,7 +105,7 @@ class SessionService : Service() {
     }
 
     private fun handleStart(intent: Intent) {
-        scheduler.stop()
+        if (scheduler.state.value.active) return
         val segJson = intent.getStringExtra(EXTRA_SEGMENTS_JSON) ?: return
         val segments = runCatching {
             json.decodeFromString(ListSerializer(Segment.serializer()), segJson)
@@ -104,12 +118,12 @@ class SessionService : Service() {
         val programId = intent.getStringExtra(EXTRA_PROGRAM_ID)
         val epochDay = if (intent.hasExtra(EXTRA_EPOCH_DAY)) intent.getLongExtra(EXTRA_EPOCH_DAY, 0L) else null
 
+        val units = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
+
         scheduler.setVoiceEnabled(voiceOn)
         currentSegments = segments
         currentProgramId = programId
         currentEpochDay = epochDay
-        currentUnits = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
-
         val state = scheduler.state.value
         ServiceCompat.startForeground(
             this,
@@ -117,7 +131,7 @@ class SessionService : Service() {
             buildNotification(state),
             foregroundType()
         )
-        scheduler.start(segments, currentUnits, preChange) { startMs, endMs, elapsedSec, aborted ->
+        scheduler.start(segments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
             scope.launch {
                 logSession(startMs, endMs, elapsedSec, aborted)
                 if (!aborted) {
@@ -161,22 +175,20 @@ class SessionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun ensureChannel() {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (nm.getNotificationChannel(CHANNEL_ID) == null) {
-            nm.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    "InsidePacer session",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Active walking session"
-                    enableLights(false)
-                    enableVibration(false)
-                    lightColor = Color.BLUE
-                    setShowBadge(false)
-                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                }
-            )
+        if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "InsidePacer sessions",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Active InsidePacer session"
+                enableLights(false)
+                enableVibration(false)
+                lightColor = Color.BLUE
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            notificationManager.createNotificationChannel(channel)
         }
     }
 
@@ -187,45 +199,127 @@ class SessionService : Service() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    private fun actionIntent(action: String): PendingIntent = PendingIntent.getService(
-        this,
-        action.hashCode(),
-        Intent(this, SessionService::class.java).setAction(action),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
+    private fun actionIntent(action: String, sessionId: String?, requestCode: Int): PendingIntent {
+        val intent = Intent(this, SessionBroadcastReceiver::class.java).setAction(action)
+        if (sessionId != null) {
+            intent.putExtra(EXTRA_SESSION_ID, sessionId)
+        }
+        return PendingIntent.getBroadcast(
+            this,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
 
     private fun buildNotification(state: SessionState): Notification {
-        val isActive = state.active
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(
-                when {
-                    !isActive -> "InsidePacer"
-                    state.isPaused -> "InsidePacer – Paused"
-                    else -> "InsidePacer – In session"
-                }
-            )
-            .setContentText(primaryNotificationText(state))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(detailNotificationText(state)))
             .setContentIntent(contentIntent())
-            .setOngoing(isActive)
             .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
-            .addAction(
-                if (isActive) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                if (isActive) "Pause" else "Resume",
-                actionIntent(if (isActive) ACTION_PAUSE else ACTION_RESUME)
-            )
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", actionIntent(ACTION_STOP))
+            .setOngoing(state.active)
+            .setAutoCancel(false)
+
+        val segmentLabel = state.currentSegmentLabel
+        val baseTitle = if (state.active && !segmentLabel.isNullOrBlank()) {
+            segmentLabel
+        } else {
+            getString(R.string.app_name)
+        }
+        val title = if (state.active && state.isPaused) {
+            "$baseTitle (${getString(R.string.session_status_paused)})"
+        } else {
+            baseTitle
+        }
+        builder.setContentTitle(title)
+
+        if (!state.active) {
+            builder.setContentText(getString(R.string.session_ready))
+            builder.setSubText(getString(R.string.session_status_ready))
+        } else {
+            val elapsed = state.elapsedSec.coerceAtLeast(0)
+            val total = state.totalDurationSec.coerceAtLeast(0)
+            val remaining = if (total > 0) (total - elapsed).coerceAtLeast(0) else state.remainingSec.coerceAtLeast(0)
+            val parts = mutableListOf("Elapsed ${formatDuration(elapsed)}")
+            if (total > 0 || remaining > 0) {
+                parts += "Remaining ${formatDuration(remaining)}"
+            }
+            builder.setContentText(parts.joinToString(" • "))
+            builder.setSubText(buildSpeedSummary(state))
+        }
+
+        if (state.sessionStartTime > 0L) {
+            builder.setShowWhen(true)
+            builder.setWhen(state.sessionStartTime)
+            builder.setUsesChronometer(true)
+        } else {
+            builder.setShowWhen(false)
+        }
+
+        val total = state.totalDurationSec.coerceAtLeast(0)
+        val elapsed = state.elapsedSec.coerceAtLeast(0)
+        if (state.active && total > 0) {
+            builder.setProgress(total, elapsed.coerceAtMost(total), false)
+        } else {
+            builder.setProgress(0, 0, false)
+        }
+
+        val actions = mutableListOf<NotificationCompat.Action>()
+        val sessionId = state.sessionId
+
+        if (state.active) {
+            val pauseResumeAction = if (!state.isPaused) {
+                NotificationCompat.Action.Builder(
+                    android.R.drawable.ic_media_pause,
+                    getString(R.string.session_action_pause),
+                    actionIntent(ACTION_PAUSE, sessionId, REQUEST_PAUSE)
+                ).build()
+            } else {
+                NotificationCompat.Action.Builder(
+                    android.R.drawable.ic_media_play,
+                    getString(R.string.session_action_resume),
+                    actionIntent(ACTION_RESUME, sessionId, REQUEST_RESUME)
+                ).build()
+            }
+            actions += pauseResumeAction
+
+            actions += NotificationCompat.Action.Builder(
+                android.R.drawable.ic_media_next,
+                getString(R.string.session_action_skip),
+                actionIntent(ACTION_SKIP, sessionId, REQUEST_SKIP)
+            ).build()
+            actions += NotificationCompat.Action.Builder(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                getString(R.string.session_action_stop),
+                actionIntent(ACTION_STOP, sessionId, REQUEST_STOP)
+            ).build()
+        } else {
+            actions += NotificationCompat.Action.Builder(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                getString(R.string.session_action_stop),
+                actionIntent(ACTION_STOP, sessionId, REQUEST_STOP)
+            ).build()
+        }
+
+        actions.forEach { builder.addAction(it) }
+
+        val compactIndices = when {
+            actions.size >= 3 -> intArrayOf(0, 1, 2)
+            actions.size == 2 -> intArrayOf(0, 1)
+            else -> intArrayOf(0)
+        }
+        builder.setStyle(NotificationCompat.MediaStyle().setShowActionsInCompactView(*compactIndices))
+
         return builder.build()
     }
 
     private fun updateNotification(state: SessionState) {
+        val notification = buildNotification(state)
         if (state.active) {
-            val notification = buildNotification(state)
             ServiceCompat.startForeground(
                 this,
                 NOTIFICATION_ID,
@@ -233,9 +327,7 @@ class SessionService : Service() {
                 foregroundType()
             )
         } else {
-            val notification = buildNotification(state)
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.notify(NOTIFICATION_ID, notification)
+            notificationManager.notify(NOTIFICATION_ID, notification)
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
             stopSelf()
         }
@@ -244,65 +336,43 @@ class SessionService : Service() {
     private fun foregroundType(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0
 
-    private fun primaryNotificationText(state: SessionState): String {
-        if (!state.active) return "Ready"
-
-        val segmentSummary = state.segments.takeIf { it.isNotEmpty() }?.let {
-            val current = (state.currentSegment + 1).coerceIn(1, it.size)
-            "Segment $current/${it.size}"
-        }
-
-        val speed = if (state.isPaused) {
-            "Paused at ${formatSpeed(state.speed)}"
+    private fun buildSpeedSummary(state: SessionState): String {
+        if (!state.active) return getString(R.string.session_status_ready)
+        val parts = mutableListOf<String>()
+        if (state.isPaused) {
+            parts += getString(R.string.session_status_paused)
         } else {
-            "Speed ${formatSpeed(state.speed)}"
+            parts += getString(R.string.session_status_running)
         }
-
-        val elapsed = formatDuration(state.elapsedSec)
-        val remaining = state.totalDurationSeconds()?.let { total ->
-            (total - state.elapsedSec).coerceAtLeast(0)
+        if (state.speed > 0) {
+            parts += "Speed ${formatSpeed(state.units, state.speed)}"
+            formatPace(state.units, state.speed)?.let { parts += "Pace $it" }
         }
-
-        return buildList {
-            add(speed)
-            segmentSummary?.let { add(it) }
-            add("Elapsed $elapsed")
-            remaining?.takeIf { it > 0 }?.let { add("Remaining ${formatDuration(it)}") }
-        }.joinToString(" • ")
+        return parts.joinToString(" • ")
     }
 
-    private fun detailNotificationText(state: SessionState): CharSequence {
-        if (!state.active) return "Ready to start your next session."
-
-        val primary = primaryNotificationText(state)
-        val totals = state.totalDurationSeconds()?.takeIf { it > 0 }?.let { total ->
-            val elapsed = state.elapsedSec.coerceAtMost(total)
-            val remaining = (total - elapsed).coerceAtLeast(0)
-            "Elapsed ${formatDuration(elapsed)} of ${formatDuration(total)} (${formatDuration(remaining)} remaining)"
-        }
-        val nextChange = when {
-            state.isPaused -> "Resume to continue"
-            state.upcomingSpeed != null -> "Next ${formatSpeed(state.upcomingSpeed!!)} in ${formatDuration(state.nextChangeInSec)}"
-            state.nextChangeInSec > 0 -> "Hold for ${formatDuration(state.nextChangeInSec)}"
-            else -> "Finishing up"
-        }
-
-        return buildList {
-            add(primary)
-            totals?.let { add(it) }
-            add(nextChange)
-        }.joinToString("\n")
-    }
-
-    private fun SessionState.totalDurationSeconds(): Int? =
-        segments.takeIf { it.isNotEmpty() }?.sumOf { it.seconds }
-
-    private fun formatSpeed(speed: Double): String {
-        val unit = when (currentUnits) {
+    private fun formatSpeed(units: Units, speed: Double): String {
+        val unitLabel = when (units) {
             Units.MPH -> "mph"
             Units.KMH -> "km/h"
         }
-        return String.format("%.1f %s", speed, unit)
+        return String.format(Locale.getDefault(), "%.1f %s", speed, unitLabel)
+    }
+
+    private fun formatPace(units: Units, speed: Double): String? {
+        if (speed <= 0) return null
+        val minutesTotal = 60.0 / speed
+        var minutes = minutesTotal.toInt()
+        var seconds = ((minutesTotal - minutes) * 60).roundToInt()
+        if (seconds == 60) {
+            seconds = 0
+            minutes += 1
+        }
+        val label = when (units) {
+            Units.MPH -> "min/mi"
+            Units.KMH -> "min/km"
+        }
+        return String.format(Locale.getDefault(), "%d:%02d %s", minutes, seconds, label)
     }
 
     private fun formatDuration(seconds: Int): String {
@@ -311,9 +381,15 @@ class SessionService : Service() {
         val minutes = (seconds % 3600) / 60
         val secs = seconds % 60
         return if (hours > 0) {
-            String.format("%d:%02d:%02d", hours, minutes, secs)
+            String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, secs)
         } else {
-            String.format("%d:%02d", minutes, secs)
+            String.format(Locale.getDefault(), "%d:%02d", minutes, secs)
         }
+    }
+
+    private fun matchesSessionIntent(intent: Intent?): Boolean {
+        val currentSessionId = scheduler.state.value.sessionId
+        val requestedId = intent?.getStringExtra(EXTRA_SESSION_ID)
+        return requestedId == null || requestedId == currentSessionId
     }
 }
