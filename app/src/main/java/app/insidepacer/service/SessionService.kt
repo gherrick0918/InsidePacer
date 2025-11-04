@@ -330,7 +330,7 @@ class SessionService : Service() {
     }
 
     private fun foregroundType(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
 
     private fun buildSpeedSummary(state: SessionState): String {
         if (!state.active) return getString(R.string.session_status_ready)
