@@ -14,8 +14,8 @@ android {
         applicationId = "app.insidepacer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.0.11"
+        versionCode = 15
+        versionName = "1.0.15"
     }
 
     buildFeatures { compose = true }
