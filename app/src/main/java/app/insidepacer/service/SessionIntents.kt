@@ -5,10 +5,6 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import app.insidepacer.data.Units
 import app.insidepacer.domain.Segment
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
-
-private val json = Json { prettyPrint = false }
 
 fun Context.startSessionService(
     segments: List<Segment>,
@@ -21,17 +17,16 @@ fun Context.startSessionService(
     val playableSegments = segments.filter { it.seconds > 0 }
     if (playableSegments.isEmpty()) return
 
-    val segJson = json.encodeToString(ListSerializer(Segment.serializer()), playableSegments)
     val intent = Intent(this, SessionService::class.java)
         .setAction(SessionService.ACTION_START)
-        .putExtra(SessionService.EXTRA_SEGMENTS_JSON, segJson)
+        .putParcelableArrayListExtra(SessionService.EXTRA_SEGMENTS, ArrayList(playableSegments))
         .putExtra(SessionService.EXTRA_PRECHANGE_SEC, preChange)
         .putExtra(SessionService.EXTRA_VOICE, voiceOn)
         .putExtra(SessionService.EXTRA_UNITS, units.name)
-        .putExtra(SessionService.EXTRA_PROGRAM_ID, programId)
-    if (epochDay != null) {
-        intent.putExtra(SessionService.EXTRA_EPOCH_DAY, epochDay)
-    }
+
+    programId?.let { intent.putExtra(SessionService.EXTRA_PROGRAM_ID, it) }
+    epochDay?.let { intent.putExtra(SessionService.EXTRA_EPOCH_DAY, it) }
+
     runCatching {
         ContextCompat.startForegroundService(this, intent)
     }.getOrElse {

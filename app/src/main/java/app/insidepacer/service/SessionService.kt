@@ -11,9 +11,9 @@ import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.IBinder
+import android.os.Parcelable
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.media.app.NotificationCompat.MediaStyle
 import app.insidepacer.R
 import app.insidepacer.data.ProgramProgressRepo
@@ -34,8 +34,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 class SessionService : Service() {
     companion object {
@@ -48,16 +46,14 @@ class SessionService : Service() {
         const val ACTION_RESUME = "app.insidepacer.action.RESUME"
         const val ACTION_SKIP = "app.insidepacer.action.SKIP"
         const val ACTION_OBSERVE = "app.insidepacer.action.OBSERVE"
-        const val ACTION_BROADCAST_STATE = "app.insidepacer.action.BROADCAST_STATE"
 
-        const val EXTRA_SEGMENTS_JSON = "segments_json"
+        const val EXTRA_SEGMENTS = "segments"
         const val EXTRA_PRECHANGE_SEC = "prechange"
         const val EXTRA_VOICE = "voice"
         const val EXTRA_UNITS = "units"
         const val EXTRA_PROGRAM_ID = "program_id"
         const val EXTRA_EPOCH_DAY = "epoch_day"
         const val EXTRA_SESSION_ID = "session_id"
-        const val EXTRA_SESSION_STATE = "session_state"
 
         private const val REQUEST_PAUSE = 1001
         private const val REQUEST_RESUME = 1002
@@ -70,9 +66,6 @@ class SessionService : Service() {
     private lateinit var sessionRepo: SessionRepo
     private lateinit var progressRepo: ProgramProgressRepo
     private lateinit var notificationManager: NotificationManager
-    private lateinit var broadcastManager: LocalBroadcastManager
-
-    private val json = Json { ignoreUnknownKeys = true }
 
     override fun onCreate() {
         super.onCreate()
@@ -80,7 +73,6 @@ class SessionService : Service() {
         sessionRepo = SessionRepo(applicationContext)
         progressRepo = ProgramProgressRepo.getInstance(applicationContext)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        broadcastManager = LocalBroadcastManager.getInstance(this)
         ensureChannel()
         scope.launch {
             scheduler.state
@@ -103,6 +95,15 @@ class SessionService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun <T : Parcelable> Intent.getParcelableArrayList(key: String, clazz: Class<T>): ArrayList<T>? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableArrayListExtra(key, clazz)
+        } else {
+            @Suppress("DEPRECATION")
+            getParcelableArrayListExtra(key)
+        }
+    }
+
     private fun handleStart(intent: Intent, startId: Int) {
         if (scheduler.state.value.active) return
         ServiceCompat.startForeground(
@@ -113,14 +114,7 @@ class SessionService : Service() {
         )
 
         scope.launch {
-            val segJson = intent.getStringExtra(EXTRA_SEGMENTS_JSON)
-            if (segJson.isNullOrBlank()) {
-                withContext(Dispatchers.Main) { stopSelfResult(startId) }
-                return@launch
-            }
-            val segments = runCatching {
-                json.decodeFromString(ListSerializer(Segment.serializer()), segJson)
-            }.getOrDefault(emptyList())
+            val segments: List<Segment> = intent.getParcelableArrayList(EXTRA_SEGMENTS, Segment::class.java) ?: emptyList()
             val playableSegments = segments.filter { it.seconds > 0 }
             if (playableSegments.isEmpty()) {
                 withContext(Dispatchers.Main) { stopSelfResult(startId) }
@@ -321,7 +315,6 @@ class SessionService : Service() {
     }
 
     private fun updateNotification(state: SessionState) {
-        broadcastState(state)
         if (state.active) {
             val notification = buildNotification(state)
             notificationManager.notify(NOTIFICATION_ID, notification)
@@ -330,12 +323,6 @@ class SessionService : Service() {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
-    }
-
-    private fun broadcastState(state: SessionState) {
-        val intent = Intent(ACTION_BROADCAST_STATE)
-        intent.putExtra(EXTRA_SESSION_STATE, state)
-        broadcastManager.sendBroadcast(intent)
     }
 
     private fun foregroundType(): Int =

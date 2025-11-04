@@ -1,10 +1,5 @@
 package app.insidepacer.ui.programs
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +18,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import app.insidepacer.data.ProgramPrefs
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.ProgramRepo
@@ -45,8 +38,6 @@ import app.insidepacer.data.dayIndexFor
 import app.insidepacer.data.inRange
 import app.insidepacer.data.templateIdAt
 import app.insidepacer.di.Singleton
-import app.insidepacer.domain.SessionState
-import app.insidepacer.service.SessionService
 import app.insidepacer.service.startSessionService
 import app.insidepacer.ui.utils.formatSeconds
 import java.time.LocalDate
@@ -56,27 +47,7 @@ import java.time.format.DateTimeFormatter
 fun TodayScreen(onOpenPrograms: () -> Unit) {
     val ctx = LocalContext.current
     val sessionScheduler = remember { Singleton.getSessionScheduler(ctx) }
-    var sessionState by remember { mutableStateOf(sessionScheduler.state.value) }
-
-    DisposableEffect(ctx) {
-        val intentFilter = IntentFilter(SessionService.ACTION_BROADCAST_STATE)
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                val state: SessionState? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    intent.getParcelableExtra(SessionService.EXTRA_SESSION_STATE, SessionState::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra(SessionService.EXTRA_SESSION_STATE)
-                }
-                state?.let { sessionState = it }
-            }
-        }
-        LocalBroadcastManager.getInstance(ctx).registerReceiver(receiver, intentFilter)
-        onDispose {
-            LocalBroadcastManager.getInstance(ctx).unregisterReceiver(receiver)
-        }
-    }
-
+    val sessionState by sessionScheduler.state.collectAsState()
 
     val prefs = remember { ProgramPrefs(ctx) }
     val programRepo = remember { ProgramRepo(ctx) }
