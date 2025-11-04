@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.media.app.NotificationCompat.MediaStyle
 import app.insidepacer.R
 import app.insidepacer.data.ProgramProgressRepo
@@ -47,6 +48,7 @@ class SessionService : Service() {
         const val ACTION_RESUME = "app.insidepacer.action.RESUME"
         const val ACTION_SKIP = "app.insidepacer.action.SKIP"
         const val ACTION_OBSERVE = "app.insidepacer.action.OBSERVE"
+        const val ACTION_BROADCAST_STATE = "app.insidepacer.action.BROADCAST_STATE"
 
         const val EXTRA_SEGMENTS_JSON = "segments_json"
         const val EXTRA_PRECHANGE_SEC = "prechange"
@@ -55,6 +57,7 @@ class SessionService : Service() {
         const val EXTRA_PROGRAM_ID = "program_id"
         const val EXTRA_EPOCH_DAY = "epoch_day"
         const val EXTRA_SESSION_ID = "session_id"
+        const val EXTRA_SESSION_STATE = "session_state"
 
         private const val REQUEST_PAUSE = 1001
         private const val REQUEST_RESUME = 1002
@@ -67,6 +70,7 @@ class SessionService : Service() {
     private lateinit var sessionRepo: SessionRepo
     private lateinit var progressRepo: ProgramProgressRepo
     private lateinit var notificationManager: NotificationManager
+    private lateinit var broadcastManager: LocalBroadcastManager
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -76,6 +80,7 @@ class SessionService : Service() {
         sessionRepo = SessionRepo(applicationContext)
         progressRepo = ProgramProgressRepo.getInstance(applicationContext)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        broadcastManager = LocalBroadcastManager.getInstance(this)
         ensureChannel()
         scope.launch {
             scheduler.state
@@ -100,43 +105,45 @@ class SessionService : Service() {
 
     private fun handleStart(intent: Intent, startId: Int) {
         if (scheduler.state.value.active) return
-        val segJson = intent.getStringExtra(EXTRA_SEGMENTS_JSON)
-        if (segJson.isNullOrBlank()) {
-            stopSelfResult(startId)
-            return
-        }
-        val segments = runCatching {
-            json.decodeFromString(ListSerializer(Segment.serializer()), segJson)
-        }.getOrDefault(emptyList())
-        val playableSegments = segments.filter { it.seconds > 0 }
-        if (playableSegments.isEmpty()) {
-            stopSelfResult(startId)
-            return
-        }
-
-        val preChange = intent.getIntExtra(EXTRA_PRECHANGE_SEC, 10)
-        val voiceOn = intent.getBooleanExtra(EXTRA_VOICE, true)
-        val unitsName = intent.getStringExtra(EXTRA_UNITS)
-        val programId = intent.getStringExtra(EXTRA_PROGRAM_ID)
-        val epochDay = if (intent.hasExtra(EXTRA_EPOCH_DAY)) intent.getLongExtra(EXTRA_EPOCH_DAY, 0L) else null
-
-        val units = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
-
-        scheduler.setVoiceEnabled(voiceOn)
-        val state = scheduler.state.value
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
-            buildNotification(state),
+            buildStartingNotification(),
             foregroundType()
         )
-        scheduler.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
-            val sessionId = scheduler.state.value.sessionId ?: return@start
-            scope.launch {
-                logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
-                if (!aborted) {
-                    if (programId != null && epochDay != null) {
-                        progressRepo.markDone(programId, epochDay)
+
+        scope.launch {
+            val segJson = intent.getStringExtra(EXTRA_SEGMENTS_JSON)
+            if (segJson.isNullOrBlank()) {
+                withContext(Dispatchers.Main) { stopSelfResult(startId) }
+                return@launch
+            }
+            val segments = runCatching {
+                json.decodeFromString(ListSerializer(Segment.serializer()), segJson)
+            }.getOrDefault(emptyList())
+            val playableSegments = segments.filter { it.seconds > 0 }
+            if (playableSegments.isEmpty()) {
+                withContext(Dispatchers.Main) { stopSelfResult(startId) }
+                return@launch
+            }
+
+            val preChange = intent.getIntExtra(EXTRA_PRECHANGE_SEC, 10)
+            val voiceOn = intent.getBooleanExtra(EXTRA_VOICE, true)
+            val unitsName = intent.getStringExtra(EXTRA_UNITS)
+            val programId = intent.getStringExtra(EXTRA_PROGRAM_ID)
+            val epochDay = if (intent.hasExtra(EXTRA_EPOCH_DAY)) intent.getLongExtra(EXTRA_EPOCH_DAY, 0L) else null
+
+            val units = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
+
+            scheduler.setVoiceEnabled(voiceOn)
+            scheduler.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
+                val sessionId = scheduler.state.value.sessionId ?: return@start
+                scope.launch {
+                    logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
+                    if (!aborted) {
+                        if (programId != null && epochDay != null) {
+                            progressRepo.markDone(programId, epochDay)
+                        }
                     }
                 }
             }
@@ -218,6 +225,16 @@ class SessionService : Service() {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    private fun buildStartingNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(getString(R.string.session_starting_up))
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
     }
 
     private fun buildNotification(state: SessionState): Notification {
@@ -304,19 +321,21 @@ class SessionService : Service() {
     }
 
     private fun updateNotification(state: SessionState) {
+        broadcastState(state)
         if (state.active) {
             val notification = buildNotification(state)
-            ServiceCompat.startForeground(
-                this,
-                NOTIFICATION_ID,
-                notification,
-                foregroundType()
-            )
+            notificationManager.notify(NOTIFICATION_ID, notification)
         } else {
             notificationManager.cancel(NOTIFICATION_ID)
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
+    }
+
+    private fun broadcastState(state: SessionState) {
+        val intent = Intent(ACTION_BROADCAST_STATE)
+        intent.putExtra(EXTRA_SESSION_STATE, state)
+        broadcastManager.sendBroadcast(intent)
     }
 
     private fun foregroundType(): Int =

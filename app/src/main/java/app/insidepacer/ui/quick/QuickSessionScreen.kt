@@ -1,5 +1,10 @@
 package app.insidepacer.ui.quick
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -29,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,9 +45,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.di.Singleton
 import app.insidepacer.domain.Segment
+import app.insidepacer.domain.SessionState
+import app.insidepacer.service.SessionService
 import app.insidepacer.service.startSessionService
 import app.insidepacer.ui.utils.formatSeconds
 import kotlinx.coroutines.launch
@@ -51,8 +60,27 @@ import kotlinx.coroutines.launch
 fun QuickSessionScreen() {
     val ctx = LocalContext.current
     val sessionScheduler = remember { Singleton.getSessionScheduler(ctx) }
-    val sessionState by sessionScheduler.state.collectAsState()
+    var sessionState by remember { mutableStateOf(sessionScheduler.state.value) }
     val scope = rememberCoroutineScope()
+
+    DisposableEffect(ctx) {
+        val intentFilter = IntentFilter(SessionService.ACTION_BROADCAST_STATE)
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val state: SessionState? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(SessionService.EXTRA_SESSION_STATE, SessionState::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(SessionService.EXTRA_SESSION_STATE)
+                }
+                state?.let { sessionState = it }
+            }
+        }
+        LocalBroadcastManager.getInstance(ctx).registerReceiver(receiver, intentFilter)
+        onDispose {
+            LocalBroadcastManager.getInstance(ctx).unregisterReceiver(receiver)
+        }
+    }
     val settingsRepo = remember { SettingsRepo(ctx) }
     val units by settingsRepo.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
     val speeds by settingsRepo.speeds.collectAsState(initial = emptyList())
