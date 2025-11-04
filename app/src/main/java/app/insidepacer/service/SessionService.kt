@@ -25,7 +25,6 @@ import app.insidepacer.domain.SessionState
 import app.insidepacer.engine.SessionScheduler
 import app.insidepacer.ui.MainActivity
 import java.util.Locale
-import java.util.UUID
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -123,8 +122,8 @@ class SessionService : Service() {
             buildNotification(state),
             foregroundType()
         )
-        val sessionId = UUID.randomUUID().toString()
-        scheduler.start(segments, units, preChange, sessionId) { startMs, endMs, elapsedSec, aborted ->
+        scheduler.start(segments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
+            val sessionId = scheduler.state.value.sessionId ?: return@start
             scope.launch {
                 logSession(sessionId, programId, startMs, endMs, segments, elapsedSec, aborted)
                 if (!aborted) {
