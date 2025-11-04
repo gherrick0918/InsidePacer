@@ -5,6 +5,7 @@ import android.content.Intent
 import app.insidepacer.data.Units
 import app.insidepacer.domain.Segment
 import app.insidepacer.domain.SessionState
+import app.insidepacer.service.SessionService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -47,7 +48,7 @@ class SessionScheduler(
             var aborted = true
 
             try {
-                val intent = Intent(ctx, SessionService::class.java)
+                val intent = Intent(ctx, SessionService::class.java).setAction(SessionService.ACTION_OBSERVE)
                 ctx.startService(intent)
 
                 segments.firstOrNull()?.let { cuePlayer.announceStartingSpeed(it.speed, units) }
@@ -100,6 +101,10 @@ class SessionScheduler(
 
     fun stop() {
         job?.cancel()
+    }
+
+    fun setVoiceEnabled(enabled: Boolean) {
+        cuePlayer.setVoiceEnabled(enabled)
     }
 
     fun pause() {

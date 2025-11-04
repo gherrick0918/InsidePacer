@@ -7,11 +7,12 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Color
+import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import androidx.media.app.NotificationCompat.MediaStyle
 import app.insidepacer.R
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.SessionRepo
@@ -19,7 +20,7 @@ import app.insidepacer.data.Units
 import app.insidepacer.domain.Segment
 import app.insidepacer.domain.SessionLog
 import app.insidepacer.domain.SessionState
-import app.insidepacer.engine.CuePlayer
+import app.insidepacer.di.Singleton
 import app.insidepacer.engine.SessionScheduler
 import app.insidepacer.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +43,7 @@ class SessionService : Service() {
         const val ACTION_STOP = "app.insidepacer.action.STOP"
         const val ACTION_PAUSE = "app.insidepacer.action.PAUSE"
         const val ACTION_RESUME = "app.insidepacer.action.RESUME"
+        const val ACTION_OBSERVE = "app.insidepacer.action.OBSERVE"
 
         const val EXTRA_SEGMENTS_JSON = "segments_json"
         const val EXTRA_PRECHANGE_SEC = "prechange"
@@ -52,7 +54,6 @@ class SessionService : Service() {
     }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private lateinit var cuePlayer: CuePlayer
     private lateinit var scheduler: SessionScheduler
     private lateinit var sessionRepo: SessionRepo
     private lateinit var progressRepo: ProgramProgressRepo
@@ -66,14 +67,14 @@ class SessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        cuePlayer = CuePlayer(applicationContext)
-        scheduler = SessionScheduler(applicationContext, cuePlayer, scope)
+        scheduler = Singleton.getSessionScheduler(applicationContext)
         sessionRepo = SessionRepo(applicationContext)
         progressRepo = ProgramProgressRepo.getInstance(applicationContext)
         ensureChannel()
         scope.launch {
             scheduler.state.collectLatest { updateNotification(it) }
         }
+        scheduler.state.value.takeIf { it.active }?.let { updateNotification(it) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -82,6 +83,9 @@ class SessionService : Service() {
             ACTION_STOP -> handleStop()
             ACTION_PAUSE -> scheduler.pause()
             ACTION_RESUME -> scheduler.resume()
+            ACTION_OBSERVE, null -> {
+                // no-op: observation happens via state collector
+            }
         }
         return START_NOT_STICKY
     }
@@ -100,16 +104,22 @@ class SessionService : Service() {
         val programId = intent.getStringExtra(EXTRA_PROGRAM_ID)
         val epochDay = if (intent.hasExtra(EXTRA_EPOCH_DAY)) intent.getLongExtra(EXTRA_EPOCH_DAY, 0L) else null
 
-        cuePlayer.setVoiceEnabled(voiceOn)
+        scheduler.setVoiceEnabled(voiceOn)
         currentSegments = segments
         currentProgramId = programId
         currentEpochDay = epochDay
         currentUnits = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
 
         val state = scheduler.state.value
-        startForeground(NOTIFICATION_ID, buildNotification(state))
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            buildNotification(state),
+            foregroundType()
+        )
         scheduler.start(segments, currentUnits, preChange) { startMs, endMs, elapsedSec, aborted ->
-            scope.launch {                logSession(startMs, endMs, elapsedSec, aborted)
+            scope.launch {
+                logSession(startMs, endMs, elapsedSec, aborted)
                 if (!aborted) {
                     markDone()
                 }
@@ -149,8 +159,6 @@ class SessionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        scheduler.stop()
-        cuePlayer.release()
         scope.cancel()
     }
 
@@ -163,13 +171,14 @@ class SessionService : Service() {
                 NotificationChannel(
                     CHANNEL_ID,
                     "InsidePacer session",
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Active walking session"
                     enableLights(false)
                     enableVibration(false)
                     lightColor = Color.BLUE
                     setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 }
             )
         }
@@ -205,7 +214,9 @@ class SessionService : Service() {
             .setOngoing(isActive)
             .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setStyle(MediaStyle())
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
             .addAction(
                 if (isActive) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
                 if (isActive) "Pause" else "Resume",
@@ -217,6 +228,21 @@ class SessionService : Service() {
 
     private fun updateNotification(state: SessionState) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIFICATION_ID, buildNotification(state))
+        val notification = buildNotification(state)
+        if (state.active) {
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                notification,
+                foregroundType()
+            )
+        } else {
+            nm.notify(NOTIFICATION_ID, notification)
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
     }
+
+    private fun foregroundType(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0
 }
