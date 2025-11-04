@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.di.Singleton
 import app.insidepacer.domain.Segment
+import app.insidepacer.service.startSessionService
 import app.insidepacer.ui.utils.formatSeconds
 import kotlinx.coroutines.launch
 
@@ -58,6 +59,7 @@ fun QuickSessionScreen() {
     val units by settingsRepo.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
     val speeds by settingsRepo.speeds.collectAsState(initial = emptyList())
     val preChangeSeconds by settingsRepo.preChangeSeconds.collectAsState(initial = 10)
+    val voiceEnabled by settingsRepo.voiceEnabled.collectAsState(initial = true)
 
     var segments by remember { mutableStateOf(emptyList<Segment>()) }
     var showResetDialog by remember { mutableStateOf(false) }
@@ -182,12 +184,13 @@ fun QuickSessionScreen() {
                     onClick = { sessionScheduler.stop() },
                 ) { Text("Stop") }
             } else {
-                 Button(
+                Button(
                     onClick = {
-                        sessionScheduler.start(
+                        ctx.startSessionService(
                             segments = segments,
                             units = units,
-                            preChangeSeconds = preChangeSeconds
+                            preChange = preChangeSeconds,
+                            voiceOn = voiceEnabled
                         )
                     },
                     enabled = segments.isNotEmpty(),
