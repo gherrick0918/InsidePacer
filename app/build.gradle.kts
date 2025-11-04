@@ -14,8 +14,8 @@ android {
         applicationId = "app.insidepacer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 15
-        versionName = "1.0.15"
+        versionCode = 17
+        versionName = "1.0.17"
     }
 
     buildFeatures { compose = true }
@@ -45,4 +45,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.media:media:1.7.1")
 }

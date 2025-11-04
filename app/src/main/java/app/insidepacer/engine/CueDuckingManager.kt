@@ -35,7 +35,7 @@ class CueDuckingManager(context: Context) {
     }
 
     private suspend fun ensureFocus(request: AudioFocusRequest): Boolean {
-        repeat(MAX_FOCUS_ATTEMPTS) {
+        for (i in 1..MAX_FOCUS_ATTEMPTS) {
             when (audioManager.requestAudioFocus(request)) {
                 AudioManager.AUDIOFOCUS_REQUEST_GRANTED -> return false
                 AudioManager.AUDIOFOCUS_REQUEST_DELAYED -> {

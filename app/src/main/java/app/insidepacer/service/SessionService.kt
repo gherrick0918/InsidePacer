@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.media.app.NotificationCompat.MediaStyle
 import app.insidepacer.R
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.SessionRepo
@@ -28,7 +29,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -84,7 +84,6 @@ class SessionService : Service() {
         ensureChannel()
         scope.launch {
             scheduler.state
-                .distinctUntilChanged()
                 .collectLatest { updateNotification(it) }
         }
         scheduler.state.value.takeIf { it.active }?.let { updateNotification(it) }
@@ -312,7 +311,7 @@ class SessionService : Service() {
             actions.size == 2 -> intArrayOf(0, 1)
             else -> intArrayOf(0)
         }
-        builder.setStyle(NotificationCompat.MediaStyle().setShowActionsInCompactView(*compactIndices))
+        builder.setStyle(MediaStyle().setShowActionsInCompactView(*compactIndices))
 
         return builder.build()
     }
