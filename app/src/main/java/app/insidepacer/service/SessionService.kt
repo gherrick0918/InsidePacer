@@ -171,11 +171,15 @@ class SessionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun ensureChannel() {
+        val existing = notificationManager.getNotificationChannel(CHANNEL_ID)
+        if (existing != null && existing.importance < NotificationManager.IMPORTANCE_DEFAULT) {
+            notificationManager.deleteNotificationChannel(CHANNEL_ID)
+        }
         if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "InsidePacer sessions",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Active InsidePacer session"
                 enableLights(false)
@@ -233,36 +237,14 @@ class SessionService : Service() {
         }
         builder.setContentTitle(title)
 
-        if (!state.active) {
-            builder.setContentText(getString(R.string.session_ready))
-            builder.setSubText(getString(R.string.session_status_ready))
-        } else {
-            val elapsed = state.elapsedSec.coerceAtLeast(0)
-            val total = state.totalDurationSec.coerceAtLeast(0)
-            val remaining = if (total > 0) (total - elapsed).coerceAtLeast(0) else state.remainingSec.coerceAtLeast(0)
-            val parts = mutableListOf("Elapsed ${formatDuration(elapsed)}")
-            if (total > 0 || remaining > 0) {
-                parts += "Remaining ${formatDuration(remaining)}"
-            }
-            builder.setContentText(parts.joinToString(" • "))
-            builder.setSubText(buildSpeedSummary(state))
-        }
+        val (contentText, subText) = buildContentText(state)
+        builder.setContentText(contentText)
+        subText?.let { builder.setSubText(it) }
 
-        if (state.sessionStartTime > 0L) {
-            builder.setShowWhen(true)
-            builder.setWhen(state.sessionStartTime)
-            builder.setUsesChronometer(true)
-        } else {
-            builder.setShowWhen(false)
-        }
+        builder.applyTimeInfo(state)
+        builder.applyProgress(state)
 
-        val total = state.totalDurationSec.coerceAtLeast(0)
-        val elapsed = state.elapsedSec.coerceAtLeast(0)
-        if (state.active && total > 0) {
-            builder.setProgress(total, elapsed.coerceAtMost(total), false)
-        } else {
-            builder.setProgress(0, 0, false)
-        }
+        builder.setPublicVersion(buildPublicNotification(state, title, contentText, subText))
 
         val actions = mutableListOf<NotificationCompat.Action>()
         val sessionId = state.sessionId
@@ -314,8 +296,8 @@ class SessionService : Service() {
     }
 
     private fun updateNotification(state: SessionState) {
-        val notification = buildNotification(state)
         if (state.active) {
+            val notification = buildNotification(state)
             ServiceCompat.startForeground(
                 this,
                 NOTIFICATION_ID,
@@ -323,14 +305,103 @@ class SessionService : Service() {
                 foregroundType()
             )
         } else {
-            notificationManager.notify(NOTIFICATION_ID, notification)
-            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+            notificationManager.cancel(NOTIFICATION_ID)
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
     }
 
     private fun foregroundType(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
+
+    private fun buildContentText(state: SessionState): Pair<String, String?> {
+        if (!state.active) {
+            val readyText = getString(R.string.session_ready)
+            return readyText to getString(R.string.session_status_ready)
+        }
+
+        val progressSummary = buildProgressSummary(state)
+        val nextSummary = buildNextChangeSummary(state)
+        val content = listOfNotNull(progressSummary, nextSummary).joinToString(" • ")
+        val status = buildSpeedSummary(state)
+        return content to status
+    }
+
+    private fun buildProgressSummary(state: SessionState): String {
+        val elapsed = state.elapsedSec.coerceAtLeast(0)
+        val total = state.totalDurationSec.coerceAtLeast(0)
+        val remaining = if (total > 0) {
+            (total - elapsed).coerceAtLeast(0)
+        } else {
+            state.remainingSec.coerceAtLeast(0)
+        }
+        return if (remaining > 0 && (total > 0 || state.remainingSec > 0)) {
+            getString(
+                R.string.session_notification_elapsed_remaining,
+                formatDuration(elapsed),
+                formatDuration(remaining)
+            )
+        } else {
+            getString(R.string.session_notification_elapsed_only, formatDuration(elapsed))
+        }
+    }
+
+    private fun buildNextChangeSummary(state: SessionState): String? {
+        val upcomingSpeed = state.upcomingSpeed ?: return null
+        val secondsUntil = state.nextChangeInSec.coerceAtLeast(0)
+        if (secondsUntil <= 0 && !state.isPaused) return null
+        val formattedSpeed = formatSpeed(state.units, upcomingSpeed)
+        val formattedTime = formatDuration(secondsUntil)
+        return getString(R.string.session_notification_next_speed, formattedSpeed, formattedTime)
+    }
+
+    private fun buildPublicNotification(
+        state: SessionState,
+        title: String,
+        contentText: String,
+        subText: String?
+    ): Notification {
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title)
+            .setContentText(contentText)
+            .setOnlyAlertOnce(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setOngoing(state.active)
+            .setAutoCancel(false)
+
+        subText?.let { builder.setSubText(it) }
+
+        builder.applyTimeInfo(state)
+        builder.applyProgress(state)
+
+        return builder.build()
+    }
+
+    private fun NotificationCompat.Builder.applyTimeInfo(state: SessionState): NotificationCompat.Builder {
+        if (state.active && state.sessionStartTime > 0L) {
+            setShowWhen(true)
+            setWhen(state.sessionStartTime)
+            setUsesChronometer(true)
+        } else {
+            setShowWhen(false)
+            setUsesChronometer(false)
+        }
+        return this
+    }
+
+    private fun NotificationCompat.Builder.applyProgress(state: SessionState): NotificationCompat.Builder {
+        val total = state.totalDurationSec.coerceAtLeast(0)
+        val elapsed = state.elapsedSec.coerceAtLeast(0)
+        if (state.active && total > 0) {
+            setProgress(total, elapsed.coerceAtMost(total), false)
+        } else {
+            setProgress(0, 0, false)
+        }
+        return this
+    }
 
     private fun buildSpeedSummary(state: SessionState): String {
         if (!state.active) return getString(R.string.session_status_ready)

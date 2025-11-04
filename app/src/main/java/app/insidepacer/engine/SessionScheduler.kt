@@ -96,11 +96,15 @@ class SessionScheduler(
                             cuePlayer.preChange(preChangeSeconds, nextSpeed, units)
                         }
 
-                        if (timeRemaining <= 3) cuePlayer.beep()
-
                         while (_state.value.isPaused && isActive) delay(100)
+                        if (!isActive) break
 
-                        delay(1000)
+                        if (timeRemaining <= 3) {
+                            cuePlayer.beep()
+                        } else {
+                            delay(1000)
+                        }
+
                         timeRemaining--
                         elapsed++
                         updateState(
