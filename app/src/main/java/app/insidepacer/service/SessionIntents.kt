@@ -2,6 +2,7 @@ package app.insidepacer.service
 
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.ContextCompat
 import app.insidepacer.data.Units
 import app.insidepacer.domain.Segment
 import kotlinx.serialization.builtins.ListSerializer
@@ -28,7 +29,11 @@ fun Context.startSessionService(
     if (epochDay != null) {
         intent.putExtra(SessionService.EXTRA_EPOCH_DAY, epochDay)
     }
-    startService(intent)
+    runCatching {
+        ContextCompat.startForegroundService(this, intent)
+    }.getOrElse {
+        startService(intent)
+    }
 }
 
 fun Context.pauseSession() {
