@@ -2,38 +2,44 @@ package app.insidepacer.engine
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import app.insidepacer.data.Units
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.SupervisorJob
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 
-class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
+class CuePlayer(
+    ctx: Context,
+    private val duckingManager: CueDuckingManager,
+) : TextToSpeech.OnInitListener {
     private val tts: TextToSpeech
-    private val audioManager = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val beeper = ToneGenerator(AudioManager.STREAM_ALARM, 100)
     @Volatile
     private var voiceOn = true
 
     private val ttsInitialized = CompletableDeferred<Unit>()
     private val utteranceCompletions = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
-    private val inFlight = AtomicInteger(0)
-    private val audioAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val speechMutex = Mutex()
+    private val speechAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
-    private val focusRequest by lazy {
-        AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-            .setAudioAttributes(audioAttributes)
-            .setOnAudioFocusChangeListener { }
-            .build()
-    }
+    private val toneAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .build()
 
     init {
         tts = TextToSpeech(ctx, this)
@@ -42,17 +48,15 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts.language = Locale.getDefault()
-            tts.setAudioAttributes(audioAttributes)
+            tts.setAudioAttributes(speechAttributes)
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String) {}
                 override fun onDone(utteranceId: String) {
                     utteranceCompletions.remove(utteranceId)?.complete(Unit)
-                    endDuck()
                 }
 
                 override fun onError(utteranceId: String) {
                     utteranceCompletions.remove(utteranceId)?.complete(Unit)
-                    endDuck()
                 }
             })
             ttsInitialized.complete(Unit)
@@ -63,37 +67,20 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
 
     fun setVoiceEnabled(on: Boolean) {
         voiceOn = on
-        if (!on) {
-            audioManager.abandonAudioFocusRequest(focusRequest)
-            inFlight.set(0)
-        }
     }
 
-    private fun beginDuck() {
+    private suspend fun speakInternal(text: String, flush: Boolean) {
         if (!voiceOn) return
-        if (inFlight.getAndIncrement() == 0) {
-            audioManager.requestAudioFocus(focusRequest)
-        }
-    }
-
-    private fun endDuck() {
-        if (inFlight.decrementAndGet() <= 0) {
-            inFlight.set(0)
-            audioManager.abandonAudioFocusRequest(focusRequest)
-        }
-    }
-
-    private suspend fun say(text: String, flush: Boolean) {
         ttsInitialized.await()
-        if (!voiceOn) return
 
         val utteranceId = UUID.randomUUID().toString()
         val deferred = CompletableDeferred<Unit>()
         utteranceCompletions[utteranceId] = deferred
 
         val queueMode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-        beginDuck()
-        tts.speak(text, queueMode, null, utteranceId)
+        speechMutex.withLock {
+            tts.speak(text, queueMode, null, utteranceId)
+        }
 
         try {
             deferred.await()
@@ -102,55 +89,74 @@ class CuePlayer(ctx: Context) : TextToSpeech.OnInitListener {
         }
     }
 
-    private fun sayAsync(text: String, flush: Boolean = false) {
-        if (!voiceOn || !ttsInitialized.isCompleted) return
-        val utteranceId = UUID.randomUUID().toString()
-        utteranceCompletions[utteranceId] = CompletableDeferred()
-        val queueMode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-        beginDuck()
-        tts.speak(text, queueMode, null, utteranceId)
-    }
-
     fun beep() {
-        beeper.startTone(ToneGenerator.TONE_CDMA_PIP, 150)
+        scope.launch {
+            duckingManager.withFocus(toneAttributes) {
+                playBeep()
+            }
+        }
     }
 
     suspend fun countdown321(delayMs: Long = 1000) {
         ttsInitialized.await()
-        beginDuck()
-        beep(); delay(150); sayAsync("3"); delay(delayMs - 150)
-        beep(); delay(150); sayAsync("2"); delay(delayMs - 150)
-        beep(); delay(150); sayAsync("1"); delay(delayMs - 150)
-        say("Go", flush = false) // use say to wait for completion
-        endDuck()
+        duckingManager.withFocus(speechAttributes) {
+            playBeep(); delay(150); speakInternal("3", flush = false); delay(delayMs - 150)
+            playBeep(); delay(150); speakInternal("2", flush = false); delay(delayMs - 150)
+            playBeep(); delay(150); speakInternal("1", flush = false); delay(delayMs - 150)
+            speakInternal("Go", flush = false)
+        }
     }
 
     suspend fun announceStartingSpeed(speed: Double, units: Units) {
-        say("First speed is $speed ${units.name.lowercase(Locale.getDefault())}", flush = true)
+        duckingManager.withFocus(speechAttributes) {
+            speakInternal(
+                "First speed is $speed ${units.name.lowercase(Locale.getDefault())}",
+                flush = true
+            )
+        }
     }
 
     fun preChange(seconds: Int, nextSpeed: Double? = null, units: Units) {
         if (seconds > 0) {
             val message = "Speed change in $seconds seconds"
             val nextSpeedMessage = nextSpeed?.let { " to $it ${units.name.lowercase(Locale.getDefault())}" } ?: ""
-            sayAsync(message + nextSpeedMessage)
+            scope.launch {
+                duckingManager.withFocus(speechAttributes) {
+                    speakInternal(message + nextSpeedMessage, flush = false)
+                }
+            }
         }
     }
 
     fun changeNow(newSpeed: Double, units: Units) {
-        beep()
-        sayAsync("Change speed now to $newSpeed ${units.name.lowercase(Locale.getDefault())}", flush = true)
+        scope.launch {
+            duckingManager.withFocus(speechAttributes) {
+                playBeep()
+                speakInternal(
+                    "Change speed now to $newSpeed ${units.name.lowercase(Locale.getDefault())}",
+                    flush = true
+                )
+            }
+        }
     }
 
     fun finish() {
-        sayAsync("Session complete", flush = true)
+        scope.launch {
+            duckingManager.withFocus(speechAttributes) {
+                speakInternal("Session complete", flush = true)
+            }
+        }
     }
 
     fun release() {
         tts.stop()
         tts.shutdown()
         beeper.release()
-        audioManager.abandonAudioFocusRequest(focusRequest)
-        inFlight.set(0)
+        scope.cancel()
+    }
+
+    private suspend fun playBeep(durationMs: Int = 150) {
+        beeper.startTone(ToneGenerator.TONE_CDMA_PIP, durationMs)
+        delay(durationMs.toLong())
     }
 }

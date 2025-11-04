@@ -37,6 +37,7 @@ import app.insidepacer.data.computeStreaks
 import app.insidepacer.data.dayIndexFor
 import app.insidepacer.data.inRange
 import app.insidepacer.di.Singleton
+import app.insidepacer.service.startSessionService
 import app.insidepacer.ui.utils.formatSeconds
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -143,15 +144,13 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                             if (templateId == null) return@Button
                             val segments = templateRepo.get(templateId)?.segments ?: emptyList()
                             if (segments.isEmpty()) return@Button
-                            sessionScheduler.start(
+                            ctx.startSessionService(
                                 segments = segments,
                                 units = units,
-                                preChangeSeconds = preChange,
-                                onFinish = { _, _, _, aborted ->
-                                    if (!aborted) {
-                                        progressRepo.markDone(program.id, epochDay)
-                                    }
-                                }
+                                preChange = preChange,
+                                voiceOn = voiceEnabled,
+                                programId = program.id,
+                                epochDay = epochDay
                             )
                         },
                         enabled = templateId != null && !sessionState.active
