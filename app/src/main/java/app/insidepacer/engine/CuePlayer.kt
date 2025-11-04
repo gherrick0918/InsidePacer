@@ -89,10 +89,12 @@ class CuePlayer(
         }
     }
 
-    fun beep() {
-        scope.launch {
-            duckingManager.withFocus(toneAttributes) {
-                playBeep()
+    suspend fun beep(intervalMs: Long = 1000L) {
+        duckingManager.withFocus(toneAttributes) {
+            playBeep(BEEP_DURATION_MS)
+            val remaining = (intervalMs - BEEP_DURATION_MS).coerceAtLeast(0L)
+            if (remaining > 0) {
+                delay(remaining)
             }
         }
     }
@@ -155,8 +157,12 @@ class CuePlayer(
         scope.cancel()
     }
 
-    private suspend fun playBeep(durationMs: Int = 150) {
+    private suspend fun playBeep(durationMs: Int) {
         beeper.startTone(ToneGenerator.TONE_CDMA_PIP, durationMs)
         delay(durationMs.toLong())
+    }
+
+    companion object {
+        private const val BEEP_DURATION_MS = 150
     }
 }
