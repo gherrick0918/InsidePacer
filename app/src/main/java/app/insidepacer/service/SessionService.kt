@@ -252,27 +252,34 @@ class SessionService : Service() {
             "Segment $current/${it.size}"
         }
 
-        val elapsed = formatDuration(state.elapsedSec)
         val speed = if (state.isPaused) {
             "Paused at ${formatSpeed(state.speed)}"
         } else {
             "Speed ${formatSpeed(state.speed)}"
         }
 
-        return buildString {
-            append(speed)
-            if (segmentSummary != null) {
-                append(" • ")
-                append(segmentSummary)
-            }
-            append(" • Elapsed $elapsed")
+        val elapsed = formatDuration(state.elapsedSec)
+        val remaining = state.totalDurationSeconds()?.let { total ->
+            (total - state.elapsedSec).coerceAtLeast(0)
         }
+
+        return buildList {
+            add(speed)
+            segmentSummary?.let { add(it) }
+            add("Elapsed $elapsed")
+            remaining?.takeIf { it > 0 }?.let { add("Remaining ${formatDuration(it)}") }
+        }.joinToString(" • ")
     }
 
     private fun detailNotificationText(state: SessionState): CharSequence {
         if (!state.active) return "Ready to start your next session."
 
         val primary = primaryNotificationText(state)
+        val totals = state.totalDurationSeconds()?.takeIf { it > 0 }?.let { total ->
+            val elapsed = state.elapsedSec.coerceAtMost(total)
+            val remaining = (total - elapsed).coerceAtLeast(0)
+            "Elapsed ${formatDuration(elapsed)} of ${formatDuration(total)} (${formatDuration(remaining)} remaining)"
+        }
         val nextChange = when {
             state.isPaused -> "Resume to continue"
             state.upcomingSpeed != null -> "Next ${formatSpeed(state.upcomingSpeed!!)} in ${formatDuration(state.nextChangeInSec)}"
@@ -280,8 +287,15 @@ class SessionService : Service() {
             else -> "Finishing up"
         }
 
-        return "$primary\n$nextChange"
+        return buildList {
+            add(primary)
+            totals?.let { add(it) }
+            add(nextChange)
+        }.joinToString("\n")
     }
+
+    private fun SessionState.totalDurationSeconds(): Int? =
+        segments.takeIf { it.isNotEmpty() }?.sumOf { it.seconds }
 
     private fun formatSpeed(speed: Double): String {
         val unit = when (currentUnits) {
