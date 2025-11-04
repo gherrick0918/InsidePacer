@@ -123,18 +123,12 @@ class SessionService : Service() {
                 if (!aborted) {
                     markDone()
                 }
-                ServiceCompat.stopForeground(this@SessionService, ServiceCompat.STOP_FOREGROUND_REMOVE)
-                clearNotification()
-                stopSelf()
             }
         }
     }
 
     private fun handleStop() {
         scheduler.stop()
-        clearNotification()
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
     }
 
     private suspend fun logSession(startMs: Long, endMs: Long, elapsedSec: Int, aborted: Boolean) {
@@ -239,8 +233,10 @@ class SessionService : Service() {
                 foregroundType()
             )
         } else {
-            clearNotification()
-            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            val notification = buildNotification(state)
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIFICATION_ID, notification)
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
             stopSelf()
         }
     }
@@ -305,10 +301,5 @@ class SessionService : Service() {
         } else {
             String.format("%d:%02d", minutes, secs)
         }
-    }
-
-    private fun clearNotification() {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.cancel(NOTIFICATION_ID)
     }
 }
