@@ -16,11 +16,7 @@ fun formatDuration(totalSec: Long): String {
     val minutes = ((clamped % 3600) / 60).toInt()
     val seconds = (clamped % 60).toInt()
     val locale = Locale.getDefault()
-    return if (hours > 0) {
-        String.format(locale, "%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format(locale, "%d:%02d", minutes, seconds)
-    }
+    return String.format(locale, "%d:%02d:%02d", hours, minutes, seconds)
 }
 
 fun formatDuration(totalSec: Int): String = formatDuration(totalSec.toLong())

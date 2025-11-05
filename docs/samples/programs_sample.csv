@@ -1,0 +1,6 @@
+﻿date,week,day,template,rest,done,program_name,units,total_duration_hms
+2024-05-01,1,1,"Steady Miles",false,false,Spring Build,MPH,0:30:00
+2024-05-02,1,2,,true,false,Spring Build,MPH,0:00:00
+
+date,week,day,template,rest,done,program_name,units,total_duration_hms
+2024-05-03,1,3,"Speed Play",false,true,Spring Build,KMH,0:25:00

@@ -1,0 +1,7 @@
+﻿session_id,index,speed_mph,duration_hms,target_speed_mph,actual_avg_speed_mph,pre_change_warn_sec
+mph-demo,1,6.2,0:05:00,,6.2,
+mph-demo,2,5.4,0:10:00,,5.4,
+
+session_id,index,speed_kmh,duration_hms,target_speed_kmh,actual_avg_speed_kmh,pre_change_warn_sec
+kmh-demo,1,10.2,0:04:00,,10.2,
+kmh-demo,2,8.5,0:08:00,,8.5,
