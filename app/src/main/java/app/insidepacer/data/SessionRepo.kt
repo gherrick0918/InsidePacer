@@ -59,20 +59,20 @@ class SessionRepo(private val ctx: Context) {
         val segsCsv = File(ctx.cacheDir, "session_segments.csv")
 
         CsvWriter.open(sessionsCsv).use { writer ->
-            val header = buildList {
-                add(CsvFields.SESSION_ID)
-                add(CsvFields.SESSION_START)
-                add(CsvFields.SESSION_END)
-                add(CsvFields.TOTAL_DURATION_HMS)
-                add(CsvFields.SEGMENTS_COUNT)
-                add(CsvFields.ABORTED)
-                add(CsvFields.avgSpeed(units))
-                add(CsvFields.UNITS)
-                add(CsvFields.DURATION_HMS)
-                add(CsvFields.avgSpeed(units))
-                add(CsvFields.maxSpeed(units))
-                add(CsvFields.NOTES)
-            }
+            val header = listOf(
+                CsvFields.SESSION_ID,
+                CsvFields.SESSION_START,
+                CsvFields.SESSION_END,
+                CsvFields.TOTAL_DURATION_HMS,
+                CsvFields.SEGMENTS_COUNT,
+                CsvFields.ABORTED,
+                CsvFields.avgSpeed(units),
+                CsvFields.UNITS,
+                CsvFields.DURATION_HMS,
+                CsvFields.avgSpeedWithUnit(units),
+                CsvFields.maxSpeedWithUnit(units),
+                CsvFields.NOTES,
+            )
             writer.writeRow(header)
             items.forEach { s ->
                 val avgSpeedMph = if (s.totalSeconds > 0) {
@@ -125,15 +125,15 @@ class SessionRepo(private val ctx: Context) {
                 s.segments.forEachIndexed { i, seg ->
                     val speed = numberFormat.format(speedToUnits(seg.speed, units))
                     val duration = formatDuration(seg.seconds)
-                    // TODO: actual average speed and pre-change warning seconds are not tracked per segment.
+                    // TODO: target speed and pre-change warning seconds are not tracked per segment.
                     writer.writeRow(
                         listOf(
                             s.id,
                             (i + 1).toString(),
                             speed,
                             duration,
-                            speed,
                             "",
+                            speed,
                             ""
                         )
                     )

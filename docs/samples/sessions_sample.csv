@@ -1,5 +1,5 @@
-﻿id,start,end,total_duration_hms,segments_count,aborted,avg_speed_mph,units,duration_hms,avg_speed_mph,max_speed_mph,notes
-mph-demo,2024-02-01 07:00:00,2024-02-01 07:45:00,00:45:00,4,false,5.8,MPH,00:45:00,5.8 mph,6.2 mph,"Pre-dawn tempo"
-
-id,start,end,total_duration_hms,segments_count,aborted,avg_speed_kmh,units,duration_hms,avg_speed_kmh,max_speed_kmh,notes
-kmh-demo,2024-03-15 18:10:00,2024-03-15 18:40:00,00:30:00,3,false,9.4,KMH,00:30:00,9.4 km/h,10.2 km/h,
+﻿id,start,end,total_duration_hms,segments_count,aborted,avg_speed_mph,units,duration_hms,avg_speed_with_unit_mph,max_speed_with_unit_mph,notes
+mph-demo,2024-02-01 07:00:00,2024-02-01 07:45:00,0:45:00,4,false,5.8,MPH,0:45:00,5.8 mph,6.2 mph,"Pre-dawn tempo"
+
+id,start,end,total_duration_hms,segments_count,aborted,avg_speed_kmh,units,duration_hms,avg_speed_with_unit_kmh,max_speed_with_unit_kmh,notes
+kmh-demo,2024-03-15 18:10:00,2024-03-15 18:40:00,0:30:00,3,false,9.4,KMH,0:30:00,9.4 km/h,10.2 km/h,

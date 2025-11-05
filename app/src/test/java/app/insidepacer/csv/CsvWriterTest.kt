@@ -31,5 +31,9 @@ class CsvWriterTest {
     fun avgSpeedHeaderReflectsUnits() {
         assertEquals("avg_speed_mph", CsvFields.avgSpeed(Units.MPH))
         assertEquals("avg_speed_kmh", CsvFields.avgSpeed(Units.KMH))
+        assertEquals("avg_speed_with_unit_mph", CsvFields.avgSpeedWithUnit(Units.MPH))
+        assertEquals("avg_speed_with_unit_kmh", CsvFields.avgSpeedWithUnit(Units.KMH))
+        assertEquals("max_speed_with_unit_mph", CsvFields.maxSpeedWithUnit(Units.MPH))
+        assertEquals("max_speed_with_unit_kmh", CsvFields.maxSpeedWithUnit(Units.KMH))
     }
 }

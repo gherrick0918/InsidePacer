@@ -29,6 +29,8 @@ object CsvFields {
     fun speed(units: Units): String = "speed_${speedUnitToken(units)}"
     fun avgSpeed(units: Units): String = "avg_speed_${speedUnitToken(units)}"
     fun maxSpeed(units: Units): String = "max_speed_${speedUnitToken(units)}"
+    fun avgSpeedWithUnit(units: Units): String = "avg_speed_with_unit_${speedUnitToken(units)}"
+    fun maxSpeedWithUnit(units: Units): String = "max_speed_with_unit_${speedUnitToken(units)}"
     fun targetSpeed(units: Units): String = "target_speed_${speedUnitToken(units)}"
     fun actualAvgSpeed(units: Units): String = "actual_avg_speed_${speedUnitToken(units)}"
 }

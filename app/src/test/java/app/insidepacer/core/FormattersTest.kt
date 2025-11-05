@@ -23,7 +23,7 @@ class FormattersTest {
     @Test
     fun formatDurationRoundsToMinute() {
         Locale.setDefault(Locale.US)
-        assertEquals("01:00", formatDuration(59.5))
+        assertEquals("0:01:00", formatDuration(59.5))
     }
 
     @Test
