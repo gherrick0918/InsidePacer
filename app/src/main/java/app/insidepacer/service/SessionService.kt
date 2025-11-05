@@ -39,7 +39,7 @@ import kotlinx.coroutines.withContext
 
 class SessionService : Service() {
     companion object {
-        const val CHANNEL_ID = "insidepacer_sessions_v4"
+        const val CHANNEL_ID = "insidepacer_sessions_v3"
         const val NOTIFICATION_ID = 42
 
         const val ACTION_START = "app.insidepacer.action.START"
@@ -180,27 +180,11 @@ class SessionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun ensureChannel() {
-        val existing = notificationManager.getNotificationChannel(CHANNEL_ID)
-        if (existing != null) {
-            val needsRecreation = existing.importance < NotificationManager.IMPORTANCE_DEFAULT
-            val channel = if (needsRecreation) {
-                notificationManager.deleteNotificationChannel(CHANNEL_ID)
-                null
-            } else {
-                existing.apply {
-                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                    setShowBadge(false)
-                    setSound(null, null)
-                    enableVibration(false)
-                }
-            }
-            channel?.let { notificationManager.createNotificationChannel(it) }
-        }
         if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "InsidePacer sessions",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Active InsidePacer session"
                 setSound(null, null)
@@ -241,20 +225,9 @@ class SessionService : Service() {
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
             .setSilent(true)
             .setOngoing(true)
-            .setPublicVersion(
-                NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_launcher_foreground)
-                    .setContentTitle(getString(R.string.app_name))
-                    .setContentText(getString(R.string.session_starting_up))
-                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                    .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-                    .setPriority(NotificationCompat.PRIORITY_LOW)
-                    .setSilent(true)
-                    .setOngoing(true)
-                    .build()
-            )
             .build()
     }
 
@@ -268,6 +241,7 @@ class SessionService : Service() {
             .setOngoing(state.active)
             .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
             .setSilent(true)
 
         val segmentLabel = state.currentSegmentLabel
@@ -414,6 +388,7 @@ class SessionService : Service() {
             .setOngoing(state.active)
             .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
             .setSilent(true)
 
         subText?.let { builder.setSubText(it) }
