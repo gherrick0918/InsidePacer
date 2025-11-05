@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
 
 class SessionService : Service() {
     companion object {
-        const val CHANNEL_ID = "insidepacer_sessions_v2"
+        const val CHANNEL_ID = "insidepacer_sessions_v3"
         const val NOTIFICATION_ID = 42
 
         const val ACTION_START = "app.insidepacer.action.START"
@@ -184,7 +184,7 @@ class SessionService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "InsidePacer sessions",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Active InsidePacer session"
                 setSound(null, null)
