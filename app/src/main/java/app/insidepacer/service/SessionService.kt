@@ -28,7 +28,9 @@ import app.insidepacer.ui.MainActivity
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
@@ -132,10 +134,10 @@ class SessionService : Service() {
             scheduler.setVoiceEnabled(voiceOn)
             scheduler.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
                 val sessionId = scheduler.state.value.sessionId ?: return@start
-                scope.launch {
-                    logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
-                    if (!aborted) {
-                        if (programId != null && epochDay != null) {
+                scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    withContext(Dispatchers.IO + NonCancellable) {
+                        logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
+                        if (!aborted && programId != null && epochDay != null) {
                             progressRepo.markDone(programId, epochDay)
                         }
                     }
@@ -157,19 +159,17 @@ class SessionService : Service() {
         elapsedSec: Int,
         aborted: Boolean
     ) {
-        withContext(Dispatchers.IO) {
-            val realized = sessionRepo.realizedSegments(segments, elapsedSec)
-            val log = SessionLog(
-                id = sessionId,
-                programId = programId,
-                startMillis = startMs,
-                endMillis = endMs,
-                totalSeconds = elapsedSec,
-                segments = realized,
-                aborted = aborted
-            )
-            sessionRepo.append(log)
-        }
+        val realized = sessionRepo.realizedSegments(segments, elapsedSec)
+        val log = SessionLog(
+            id = sessionId,
+            programId = programId,
+            startMillis = startMs,
+            endMillis = endMs,
+            totalSeconds = elapsedSec,
+            segments = realized,
+            aborted = aborted
+        )
+        sessionRepo.append(log)
     }
 
     override fun onDestroy() {
@@ -223,6 +223,11 @@ class SessionService : Service() {
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.session_starting_up))
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setOngoing(true)
             .build()
     }
 
@@ -235,6 +240,9 @@ class SessionService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setOngoing(state.active)
             .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
 
         val segmentLabel = state.currentSegmentLabel
         val baseTitle = if (state.active && !segmentLabel.isNullOrBlank()) {
@@ -379,6 +387,9 @@ class SessionService : Service() {
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setOngoing(state.active)
             .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
 
         subText?.let { builder.setSubText(it) }
 
