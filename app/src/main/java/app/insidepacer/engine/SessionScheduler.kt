@@ -78,6 +78,7 @@ class SessionScheduler(
                 var segIdx = 0
                 for (seg in segments) {
                     timeRemaining = seg.seconds
+                    val segmentStartElapsed = elapsed
                     updateState(
                         sessionId = sessionId,
                         startMs = startMs,
@@ -119,10 +120,21 @@ class SessionScheduler(
                             nextChange = timeRemaining
                         )
                     }
+
+                    if (!isActive) break
+
+                    val elapsedInSegment = elapsed - segmentStartElapsed
+                    elapsed += (seg.seconds - elapsedInSegment)
+
                     segments.getOrNull(segIdx + 1)?.let { cuePlayer.changeNow(it.speed, units) }
                     segIdx++
                 }
-                aborted = false
+
+                if (isActive) {
+                    aborted = false
+                    cuePlayer.finish()
+                }
+
                 updateState(
                     sessionId = sessionId,
                     startMs = startMs,
@@ -134,7 +146,6 @@ class SessionScheduler(
                     units = units,
                     nextChange = 0
                 )
-                if (isActive) cuePlayer.finish()
             } finally {
                 withContext(NonCancellable) {
                     val endMs = System.currentTimeMillis()

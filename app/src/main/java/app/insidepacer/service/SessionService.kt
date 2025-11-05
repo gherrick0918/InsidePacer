@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
 
 class SessionService : Service() {
     companion object {
-        const val CHANNEL_ID = "insidepacer_sessions"
+        const val CHANNEL_ID = "insidepacer_sessions_v2"
         const val NOTIFICATION_ID = 42
 
         const val ACTION_START = "app.insidepacer.action.START"
@@ -180,18 +180,14 @@ class SessionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun ensureChannel() {
-        val existing = notificationManager.getNotificationChannel(CHANNEL_ID)
-        if (existing != null && existing.importance < NotificationManager.IMPORTANCE_DEFAULT) {
-            notificationManager.deleteNotificationChannel(CHANNEL_ID)
-        }
         if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "InsidePacer sessions",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Active InsidePacer session"
-                enableLights(false)
+                setSound(null, null)
                 enableVibration(false)
                 lightColor = Color.BLUE
                 setShowBadge(false)
@@ -227,7 +223,6 @@ class SessionService : Service() {
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.session_starting_up))
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
     }
 
@@ -235,10 +230,8 @@ class SessionService : Service() {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(contentIntent())
-            .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setOngoing(state.active)
             .setAutoCancel(false)
@@ -336,7 +329,10 @@ class SessionService : Service() {
 
         val progressSummary = buildProgressSummary(state)
         val nextSummary = buildNextChangeSummary(state)
-        val content = listOfNotNull(progressSummary, nextSummary).joinToString(" • ")
+        val content = when {
+            state.isPaused -> listOfNotNull(progressSummary, nextSummary).joinToString(" • ")
+            else -> progressSummary
+        }
         val status = buildSpeedSummary(state)
         return content to status
     }
@@ -379,10 +375,8 @@ class SessionService : Service() {
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(contentText)
-            .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setOngoing(state.active)
             .setAutoCancel(false)
 
