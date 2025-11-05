@@ -191,7 +191,6 @@ class SessionService : Service() {
                 enableVibration(false)
                 lightColor = Color.BLUE
                 setShowBadge(false)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -223,7 +222,6 @@ class SessionService : Service() {
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.session_starting_up))
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -235,7 +233,6 @@ class SessionService : Service() {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(contentIntent())
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setOngoing(state.active)
@@ -263,8 +260,6 @@ class SessionService : Service() {
 
         builder.applyTimeInfo(state)
         builder.applyProgress(state)
-
-        builder.setPublicVersion(buildPublicNotification(state, title, contentText, subText))
 
         val actions = mutableListOf<NotificationCompat.Action>()
         val sessionId = state.sessionId
@@ -371,32 +366,6 @@ class SessionService : Service() {
         val formattedSpeed = formatSpeed(state.units, upcomingSpeed)
         val formattedTime = formatDuration(secondsUntil)
         return getString(R.string.session_notification_next_speed, formattedSpeed, formattedTime)
-    }
-
-    private fun buildPublicNotification(
-        state: SessionState,
-        title: String,
-        contentText: String,
-        subText: String?
-    ): Notification {
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(title)
-            .setContentText(contentText)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setOngoing(state.active)
-            .setAutoCancel(false)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-
-        subText?.let { builder.setSubText(it) }
-
-        builder.applyTimeInfo(state)
-        builder.applyProgress(state)
-
-        return builder.build()
     }
 
     private fun NotificationCompat.Builder.applyTimeInfo(state: SessionState): NotificationCompat.Builder {
