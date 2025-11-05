@@ -21,9 +21,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.insidepacer.domain.Segment
 import app.insidepacer.ui.theme.Spacings
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatSpeed
+import app.insidepacer.data.Units
 
 @Composable
-fun WorkoutPlan(segments: List<Segment>, currentSegment: Int) {
+fun WorkoutPlan(segments: List<Segment>, currentSegment: Int, units: Units) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(text = "Workout Plan", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(Spacings.small))
@@ -42,8 +45,8 @@ fun WorkoutPlan(segments: List<Segment>, currentSegment: Int) {
                         .padding(Spacings.small)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = "${segment.speed}", style = MaterialTheme.typography.bodyLarge)
-                        Text(text = "${segment.seconds}s", style = MaterialTheme.typography.bodySmall)
+                        Text(text = formatSpeed(segment.speed, units), style = MaterialTheme.typography.bodyLarge)
+                        Text(text = formatDuration(segment.seconds), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

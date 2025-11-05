@@ -36,12 +36,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatSpeed
+import app.insidepacer.core.speedFromUnits
+import app.insidepacer.core.speedToUnits
+import app.insidepacer.core.speedUnitLabel
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.TemplateRepo
 import app.insidepacer.domain.Segment
 import app.insidepacer.domain.Template
 import app.insidepacer.service.startSessionService
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
@@ -70,6 +77,12 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
     val voiceEnabled by settings.voiceEnabled.collectAsState(initial = true)
     val preChange by settings.preChangeSeconds.collectAsState(initial = 10)
     val units by settings.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
+    val speedFormatter = remember(units) {
+        NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+            minimumFractionDigits = 0
+            maximumFractionDigits = 1
+        }
+    }
 
     Column(modifier = Modifier.padding(16.dp)) {
         OutlinedTextField(
@@ -87,14 +100,18 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedTextField(
-                        value = seg.speed.toString(),
-                        onValueChange = {
-                            val speed = it.toDoubleOrNull() ?: 0.0
+                        value = seg.speed.takeIf { it != 0.0 }
+                            ?.let { speedFormatter.format(speedToUnits(it, units)) }
+                            ?: "",
+                        onValueChange = { text ->
+                            val sanitized = text.replace(',', '.').filter { ch -> ch.isDigit() || ch == '.' }
+                            val displayValue = sanitized.toDoubleOrNull()
                             val newSegs = segments.toMutableList()
-                            newSegs[i] = newSegs[i].copy(speed = speed)
+                            val mph = displayValue?.let { speedFromUnits(it, units) } ?: 0.0
+                            newSegs[i] = newSegs[i].copy(speed = mph)
                             segments = newSegs
                         },
-                        label = { Text("Speed") },
+                        label = { Text("Speed (${speedUnitLabel(units)})") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
@@ -146,6 +163,19 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        if (segments.isNotEmpty()) {
+            Text("Preview", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                segments.forEachIndexed { idx, seg ->
+                    Text(
+                        "${idx + 1}. ${formatSpeed(seg.speed, units)} • ${formatDuration(seg.seconds)}",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween

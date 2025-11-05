@@ -6,6 +6,8 @@ import android.media.AudioManager
 import android.media.ToneGenerator
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.Units
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -111,17 +113,15 @@ class CuePlayer(
 
     suspend fun announceStartingSpeed(speed: Double, units: Units) {
         duckingManager.withFocus(speechAttributes) {
-            speakInternal(
-                "First speed is $speed ${units.name.lowercase(Locale.getDefault())}",
-                flush = true
-            )
+            val formatted = formatSpeed(speed, units)
+            speakInternal("First speed is $formatted", flush = true)
         }
     }
 
     fun preChange(seconds: Int, nextSpeed: Double? = null, units: Units) {
         if (seconds > 0) {
-            val message = "Speed change in $seconds seconds"
-            val nextSpeedMessage = nextSpeed?.let { " to $it ${units.name.lowercase(Locale.getDefault())}" } ?: ""
+            val message = "Speed change in ${formatDuration(seconds.toLong())}"
+            val nextSpeedMessage = nextSpeed?.let { " to ${formatSpeed(it, units)}" } ?: ""
             scope.launch {
                 duckingManager.withFocus(speechAttributes) {
                     speakInternal(message + nextSpeedMessage, flush = false)
@@ -134,10 +134,8 @@ class CuePlayer(
         scope.launch {
             duckingManager.withFocus(speechAttributes) {
                 playBeep()
-                speakInternal(
-                    "Change speed now to $newSpeed ${units.name.lowercase(Locale.getDefault())}",
-                    flush = true
-                )
+                val formatted = formatSpeed(newSpeed, units)
+                speakInternal("Change speed now to $formatted", flush = true)
             }
         }
     }

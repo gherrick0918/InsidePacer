@@ -33,6 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import app.insidepacer.core.formatSpeed
+import app.insidepacer.core.speedFromUnits
+import app.insidepacer.core.speedUnitLabel
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.Units
 import app.insidepacer.ui.components.RpgCallout
@@ -40,7 +43,6 @@ import app.insidepacer.ui.components.RpgPanel
 import app.insidepacer.ui.components.RpgSectionHeader
 import app.insidepacer.ui.components.RpgTag
 import kotlinx.coroutines.launch
-import java.util.Locale
 import kotlin.math.round
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,7 +78,7 @@ fun SpeedsScreen(onContinue: () -> Unit) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(speeds) { s ->
                         RpgTag(
-                            text = String.format(Locale.getDefault(), "%.1f", s),
+                            text = formatSpeed(s, units),
                             onClick = {
                                 scope.launch { repo.setSpeeds(speeds.filter { it != s }) }
                             }
@@ -88,7 +90,7 @@ fun SpeedsScreen(onContinue: () -> Unit) {
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                label = { Text("Add pace (${units.name.lowercase(Locale.getDefault())})") },
+                label = { Text("Add pace (${speedUnitLabel(units)})") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
@@ -97,7 +99,9 @@ fun SpeedsScreen(onContinue: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = {
                     input.toDoubleOrNull()?.let {
-                        val new = (speeds + (round(it * 10.0) / 10.0)).distinct().sorted()
+                        val display = round(it * 10.0) / 10.0
+                        val mph = speedFromUnits(display, units)
+                        val new = (speeds + mph).distinct().sorted()
                         scope.launch { repo.setSpeeds(new) }
                     }
                     input = ""
@@ -115,7 +119,7 @@ fun SpeedsScreen(onContinue: () -> Unit) {
             OutlinedTextField(
                 value = minSpeed,
                 onValueChange = { minSpeed = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                label = { Text("Min speed") },
+                label = { Text("Min speed (${speedUnitLabel(units)})") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
@@ -123,7 +127,7 @@ fun SpeedsScreen(onContinue: () -> Unit) {
             OutlinedTextField(
                 value = maxSpeed,
                 onValueChange = { maxSpeed = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                label = { Text("Max speed") },
+                label = { Text("Max speed (${speedUnitLabel(units)})") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
@@ -131,7 +135,7 @@ fun SpeedsScreen(onContinue: () -> Unit) {
             OutlinedTextField(
                 value = increment,
                 onValueChange = { increment = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                label = { Text("Increment") },
+                label = { Text("Increment (${speedUnitLabel(units)})") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
@@ -143,8 +147,9 @@ fun SpeedsScreen(onContinue: () -> Unit) {
                 if (min != null && max != null && inc != null && min <= max && inc > 0) {
                     val generatedSpeeds = mutableListOf<Double>()
                     var current = min
-                    while (current <= max) {
-                        generatedSpeeds.add(round(current * 10.0) / 10.0)
+                    while (current <= max + 1e-6) {
+                        val display = round(current * 10.0) / 10.0
+                        generatedSpeeds.add(speedFromUnits(display, units))
                         current += inc
                     }
                     val new = (speeds + generatedSpeeds).distinct().sorted()
@@ -162,12 +167,12 @@ fun SpeedsScreen(onContinue: () -> Unit) {
             RpgSectionHeader("Select your guild standard")
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 RpgTag(
-                    text = "mph",
+                    text = speedUnitLabel(Units.MPH),
                     selected = units == Units.MPH,
                     onClick = { scope.launch { repo.setUnits(Units.MPH) } }
                 )
                 RpgTag(
-                    text = "km/h",
+                    text = speedUnitLabel(Units.KMH),
                     selected = units == Units.KMH,
                     onClick = { scope.launch { repo.setUnits(Units.KMH) } }
                 )

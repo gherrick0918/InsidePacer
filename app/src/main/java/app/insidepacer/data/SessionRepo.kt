@@ -1,8 +1,13 @@
 package app.insidepacer.data
 
 import android.content.Context
+import app.insidepacer.core.csvNumberFormat
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.speedToUnits
+import app.insidepacer.core.speedUnitToken
 import app.insidepacer.domain.Segment
 import app.insidepacer.domain.SessionLog
+import app.insidepacer.data.Units
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -43,25 +48,38 @@ class SessionRepo(private val ctx: Context) {
     }
 
     /** Export CSVs to cacheDir and return both files (summary, segments). */
-    suspend fun exportCsv(): Pair<File, File> = withContext(Dispatchers.IO) {
+    suspend fun exportCsv(units: Units): Pair<File, File> = withContext(Dispatchers.IO) {
         val items = loadAll()
         val df = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val numberFormat = csvNumberFormat()
+        val speedToken = speedUnitToken(units)
 
         val sessionsCsv = File(ctx.cacheDir, "sessions.csv")
         val segsCsv = File(ctx.cacheDir, "session_segments.csv")
 
         sessionsCsv.bufferedWriter().use { w ->
-            w.appendLine("id,start,end,total_seconds,segments_count,aborted")
+            w.appendLine("id,start,end,total_duration_hms,segments_count,aborted,avg_speed_$speedToken")
             items.forEach { s ->
-                w.appendLine("${s.id},${df.format(Date(s.startMillis))},${df.format(Date(s.endMillis))},${s.totalSeconds},${s.segments.size},${s.aborted}")
+                val avgSpeedMph = if (s.totalSeconds > 0) {
+                    s.segments.sumOf { it.speed * it.seconds } / s.totalSeconds
+                } else {
+                    0.0
+                }
+                val avgSpeed = numberFormat.format(speedToUnits(avgSpeedMph, units))
+                val duration = formatDuration(s.totalSeconds)
+                w.appendLine(
+                    "${s.id},${df.format(Date(s.startMillis))},${df.format(Date(s.endMillis))},$duration,${s.segments.size},${s.aborted},$avgSpeed"
+                )
             }
         }
 
         segsCsv.bufferedWriter().use { w ->
-            w.appendLine("session_id,index,speed,seconds")
+            w.appendLine("session_id,index,speed_$speedToken,duration_hms")
             items.forEach { s ->
                 s.segments.forEachIndexed { i, seg ->
-                    w.appendLine("${s.id},${i + 1},${seg.speed},${seg.seconds}")
+                    val speed = numberFormat.format(speedToUnits(seg.speed, units))
+                    val duration = formatDuration(seg.seconds)
+                    w.appendLine("${s.id},${i + 1},$speed,$duration")
                 }
             }
         }

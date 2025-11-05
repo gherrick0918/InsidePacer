@@ -30,7 +30,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatSpeed
+import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.TemplateRepo
+import app.insidepacer.data.Units
 import app.insidepacer.domain.Template
 import app.insidepacer.ui.components.RpgCallout
 import app.insidepacer.ui.components.RpgPanel
@@ -42,9 +46,11 @@ import kotlinx.coroutines.launch
 fun TemplatesListScreen(onNew: () -> Unit, onEdit: (String) -> Unit) {
     val ctx = LocalContext.current
     val repo = remember { TemplateRepo(ctx) }
+    val settings = remember { SettingsRepo(ctx) }
     var items by remember { mutableStateOf(emptyList<Template>()) }
     var toDelete by remember { mutableStateOf<Template?>(null) }
     val scope = rememberCoroutineScope()
+    val units by settings.units.collectAsState(initial = Units.MPH)
 
     fun refresh() { items = repo.loadAll() }
     LaunchedEffect(Unit) { refresh() }
@@ -89,7 +95,17 @@ fun TemplatesListScreen(onNew: () -> Unit, onEdit: (String) -> Unit) {
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(t.name, style = MaterialTheme.typography.titleMedium)
-                                Text("${t.segments.size} segments", style = MaterialTheme.typography.bodyMedium)
+                                val totalDuration = t.segments.sumOf { it.seconds }
+                                val preview = t.segments.take(3).joinToString(" • ") { seg ->
+                                    "${formatSpeed(seg.speed, units)} × ${formatDuration(seg.seconds)}"
+                                }
+                                Text(
+                                    "${t.segments.size} segments • ${formatDuration(totalDuration)}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                if (preview.isNotEmpty()) {
+                                    Text(preview, style = MaterialTheme.typography.bodySmall)
+                                }
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     TextButton(onClick = { onEdit(t.id) }) { Text("Edit") }
                                     TextButton(onClick = {
