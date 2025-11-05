@@ -108,7 +108,15 @@ class SessionService : Service() {
     }
 
     private fun handleStart(intent: Intent, startId: Int) {
-        if (scheduler.state.value.active) return
+        scheduler.state.value.takeIf { it.active }?.let {
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                buildNotification(it),
+                foregroundType()
+            )
+            return
+        }
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
