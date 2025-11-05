@@ -4,26 +4,27 @@ import android.content.Context
 import app.insidepacer.engine.CueDuckingManager
 import app.insidepacer.engine.CuePlayer
 import app.insidepacer.engine.SessionScheduler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 object Singleton {
     @Volatile
     private var _sessionScheduler: SessionScheduler? = null
+    private val mutex = Mutex()
 
-    fun getSessionScheduler(context: Context): SessionScheduler {
-        val existing = _sessionScheduler
-        if (existing != null) return existing
-
-        return synchronized(this) {
-            val cached = _sessionScheduler
-            if (cached != null) {
-                cached
-            } else {
+    suspend fun getSessionScheduler(context: Context): SessionScheduler {
+        _sessionScheduler?.let { return it }
+        return mutex.withLock {
+            _sessionScheduler?.let { return@withLock it }
+            val newScheduler = withContext(Dispatchers.IO) {
                 val appContext = context.applicationContext
                 val duckingManager = CueDuckingManager(appContext)
-                SessionScheduler(appContext, CuePlayer(appContext, duckingManager)).also {
-                    _sessionScheduler = it
-                }
+                SessionScheduler(appContext, CuePlayer(appContext, duckingManager))
             }
+            _sessionScheduler = newScheduler
+            newScheduler
         }
     }
 }

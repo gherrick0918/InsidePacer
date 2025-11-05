@@ -65,34 +65,36 @@ class SessionService : Service() {
     }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private lateinit var scheduler: SessionScheduler
+    private var scheduler: SessionScheduler? = null
     private lateinit var sessionRepo: SessionRepo
     private lateinit var progressRepo: ProgramProgressRepo
     private lateinit var notificationManager: NotificationManager
 
     override fun onCreate() {
         super.onCreate()
-        scheduler = Singleton.getSessionScheduler(applicationContext)
-        sessionRepo = SessionRepo(applicationContext)
-        progressRepo = ProgramProgressRepo.getInstance(applicationContext)
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        ensureChannel()
         scope.launch {
-            scheduler.state
-                .collectLatest { updateNotification(it) }
+            scheduler = Singleton.getSessionScheduler(applicationContext)
+            sessionRepo = SessionRepo(applicationContext)
+            progressRepo = ProgramProgressRepo.getInstance(applicationContext)
+            notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            ensureChannel()
+            scheduler?.state
+                ?.collectLatest { updateNotification(it) }
+            scheduler?.state?.value?.takeIf { it.active }?.let { updateNotification(it) }
         }
-        scheduler.state.value.takeIf { it.active }?.let { updateNotification(it) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_START -> handleStart(intent, startId)
-            ACTION_STOP -> if (matchesSessionIntent(intent)) handleStop()
-            ACTION_SKIP -> if (matchesSessionIntent(intent)) scheduler.skip()
-            ACTION_PAUSE -> if (matchesSessionIntent(intent)) scheduler.pause()
-            ACTION_RESUME -> if (matchesSessionIntent(intent)) scheduler.resume()
-            ACTION_OBSERVE, null -> {
-                // no-op: observation happens via state collector
+        scheduler?.let { scheduler ->
+            when (intent?.action) {
+                ACTION_START -> handleStart(intent, startId)
+                ACTION_STOP -> if (matchesSessionIntent(intent)) scheduler.stop()
+                ACTION_SKIP -> if (matchesSessionIntent(intent)) scheduler.skip()
+                ACTION_PAUSE -> if (matchesSessionIntent(intent)) scheduler.pause()
+                ACTION_RESUME -> if (matchesSessionIntent(intent)) scheduler.resume()
+                ACTION_OBSERVE, null -> {
+                    // no-op: observation happens via state collector
+                }
             }
         }
         return START_NOT_STICKY
@@ -108,7 +110,7 @@ class SessionService : Service() {
     }
 
     private fun handleStart(intent: Intent, startId: Int) {
-        scheduler.state.value.takeIf { it.active }?.let {
+        scheduler?.state?.value?.takeIf { it.active }?.let {
             ServiceCompat.startForeground(
                 this,
                 NOTIFICATION_ID,
@@ -140,9 +142,9 @@ class SessionService : Service() {
 
             val units = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
 
-            scheduler.setVoiceEnabled(voiceOn)
-            scheduler.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
-                val sessionId = scheduler.state.value.sessionId ?: return@start
+            scheduler?.setVoiceEnabled(voiceOn)
+            scheduler?.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
+                val sessionId = scheduler?.state?.value?.sessionId ?: return@start
                 scope.launch(start = CoroutineStart.UNDISPATCHED) {
                     withContext(Dispatchers.IO + NonCancellable) {
                         logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
@@ -156,7 +158,7 @@ class SessionService : Service() {
     }
 
     private fun handleStop() {
-        scheduler.stop()
+        scheduler?.stop()
     }
 
     private suspend fun logSession(
@@ -416,7 +418,7 @@ class SessionService : Service() {
     }
 
     private fun matchesSessionIntent(intent: Intent?): Boolean {
-        val currentSessionId = scheduler.state.value.sessionId
+        val currentSessionId = scheduler?.state?.value?.sessionId
         val requestedId = intent?.getStringExtra(EXTRA_SESSION_ID)
         return requestedId == null || requestedId == currentSessionId
     }

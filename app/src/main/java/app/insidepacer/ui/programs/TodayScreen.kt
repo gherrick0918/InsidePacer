@@ -13,11 +13,13 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +41,7 @@ import app.insidepacer.data.dayIndexFor
 import app.insidepacer.data.inRange
 import app.insidepacer.data.templateIdAt
 import app.insidepacer.di.Singleton
+import app.insidepacer.engine.SessionScheduler
 import app.insidepacer.service.startSessionService
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -46,8 +49,21 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun TodayScreen(onOpenPrograms: () -> Unit) {
     val ctx = LocalContext.current
-    val sessionScheduler = remember { Singleton.getSessionScheduler(ctx) }
-    val sessionState by sessionScheduler.state.collectAsState()
+    var sessionScheduler by remember { mutableStateOf<SessionScheduler?>(null) }
+    LaunchedEffect(ctx) {
+        sessionScheduler = Singleton.getSessionScheduler(ctx)
+    }
+    val sessionState by sessionScheduler?.state?.collectAsState() ?: return
+
+    if (sessionScheduler == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     val prefs = remember { ProgramPrefs(ctx) }
     val programRepo = remember { ProgramRepo(ctx) }
@@ -148,28 +164,28 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                                 epochDay = epochDay
                             )
                         },
-                        enabled = templateId != null && !sessionState.active
+                        enabled = templateId != null && sessionState?.active != true
                     ) {
                         Text(if (isDone) "Run again" else if (selectedDate == LocalDate.now()) "Run today" else "Run this day")
                     }
 
-                    if (sessionState.active) {
+                    if (sessionState?.active == true) {
                          OutlinedButton(
-                            onClick = { sessionScheduler.togglePause() },
-                        ) { Text(if (sessionState.isPaused) "Resume" else "Pause") }
+                            onClick = { sessionScheduler?.togglePause() },
+                        ) { Text(if (sessionState?.isPaused == true) "Resume" else "Pause") }
 
                         OutlinedButton(
-                            onClick = { sessionScheduler.stop() },
+                            onClick = { sessionScheduler?.stop() },
                         ) { Text("Stop") }
                     }
                 }
 
-                if (sessionState.active) {
-                    val totalDuration = sessionState.segments.sumOf { it.seconds }
-                    val remaining = totalDuration - sessionState.elapsedSec
-                    Text("Session in progress: ${formatDuration(sessionState.elapsedSec)} / ${formatDuration(totalDuration)}")
-                    Text("Time left: ${formatDuration(remaining)}")
-                    Text("Current Speed: ${formatSpeed(sessionState.speed, units)} • Next change in ${formatDuration(sessionState.nextChangeInSec)}")
+                if (sessionState?.active == true) {
+                    val totalDuration = sessionState?.segments?.sumOf { it.seconds.toDouble() } ?: 0.0
+                    val remaining = totalDuration - (sessionState?.elapsedSec ?: 0)
+                    Text("Session in progress: ${formatDuration(sessionState?.elapsedSec ?: 0)} / ${formatDuration(totalDuration.toInt())}")
+                    Text("Time left: ${formatDuration(remaining.toInt())}")
+                    Text("Current Speed: ${formatSpeed((sessionState?.speed ?: 0f).toDouble(), units)} • Next change in ${formatDuration(sessionState?.nextChangeInSec ?: 0)}")
                 }
 
                 if (templateId == null) {
