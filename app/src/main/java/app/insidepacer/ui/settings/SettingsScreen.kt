@@ -2,6 +2,7 @@ package app.insidepacer.ui.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -47,7 +48,7 @@ fun SettingsScreen() {
       )
     }
 
-    Divider()
+    HorizontalDivider()
 
     Text("Preferred units", style = MaterialTheme.typography.titleMedium)
     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
