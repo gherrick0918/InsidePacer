@@ -28,7 +28,9 @@ import app.insidepacer.ui.MainActivity
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
@@ -37,7 +39,7 @@ import kotlinx.coroutines.withContext
 
 class SessionService : Service() {
     companion object {
-        const val CHANNEL_ID = "insidepacer_sessions_v3"
+        const val CHANNEL_ID = "insidepacer_sessions_v4"
         const val NOTIFICATION_ID = 42
 
         const val ACTION_START = "app.insidepacer.action.START"
@@ -132,10 +134,10 @@ class SessionService : Service() {
             scheduler.setVoiceEnabled(voiceOn)
             scheduler.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
                 val sessionId = scheduler.state.value.sessionId ?: return@start
-                scope.launch {
-                    logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
-                    if (!aborted) {
-                        if (programId != null && epochDay != null) {
+                scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    withContext(Dispatchers.IO + NonCancellable) {
+                        logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
+                        if (!aborted && programId != null && epochDay != null) {
                             progressRepo.markDone(programId, epochDay)
                         }
                     }
@@ -157,19 +159,17 @@ class SessionService : Service() {
         elapsedSec: Int,
         aborted: Boolean
     ) {
-        withContext(Dispatchers.IO) {
-            val realized = sessionRepo.realizedSegments(segments, elapsedSec)
-            val log = SessionLog(
-                id = sessionId,
-                programId = programId,
-                startMillis = startMs,
-                endMillis = endMs,
-                totalSeconds = elapsedSec,
-                segments = realized,
-                aborted = aborted
-            )
-            sessionRepo.append(log)
-        }
+        val realized = sessionRepo.realizedSegments(segments, elapsedSec)
+        val log = SessionLog(
+            id = sessionId,
+            programId = programId,
+            startMillis = startMs,
+            endMillis = endMs,
+            totalSeconds = elapsedSec,
+            segments = realized,
+            aborted = aborted
+        )
+        sessionRepo.append(log)
     }
 
     override fun onDestroy() {
@@ -180,11 +180,27 @@ class SessionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun ensureChannel() {
+        val existing = notificationManager.getNotificationChannel(CHANNEL_ID)
+        if (existing != null) {
+            val needsRecreation = existing.importance < NotificationManager.IMPORTANCE_DEFAULT
+            val channel = if (needsRecreation) {
+                notificationManager.deleteNotificationChannel(CHANNEL_ID)
+                null
+            } else {
+                existing.apply {
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    setShowBadge(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+            }
+            channel?.let { notificationManager.createNotificationChannel(it) }
+        }
         if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "InsidePacer sessions",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Active InsidePacer session"
                 setSound(null, null)
@@ -223,6 +239,22 @@ class SessionService : Service() {
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.session_starting_up))
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
+            .setOngoing(true)
+            .setPublicVersion(
+                NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentTitle(getString(R.string.app_name))
+                    .setContentText(getString(R.string.session_starting_up))
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setSilent(true)
+                    .setOngoing(true)
+                    .build()
+            )
             .build()
     }
 
@@ -235,6 +267,8 @@ class SessionService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setOngoing(state.active)
             .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
 
         val segmentLabel = state.currentSegmentLabel
         val baseTitle = if (state.active && !segmentLabel.isNullOrBlank()) {
@@ -379,6 +413,8 @@ class SessionService : Service() {
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setOngoing(state.active)
             .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
 
         subText?.let { builder.setSubText(it) }
 
