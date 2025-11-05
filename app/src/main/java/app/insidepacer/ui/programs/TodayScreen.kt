@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AssistChip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -33,7 +33,6 @@ import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.ProgramRepo
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.TemplateRepo
-import app.insidepacer.data.computeStreaks
 import app.insidepacer.data.dayIndexFor
 import app.insidepacer.data.inRange
 import app.insidepacer.data.templateIdAt
@@ -95,8 +94,6 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
             val template = templateId?.let { templateRepo.get(it) }
             val templateName = template?.name ?: "Rest"
 
-            val streaks = program.let { computeStreaks(it, progressRepo) }
-
             Column(
                 Modifier
                     .fillMaxSize()
@@ -127,13 +124,6 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                         )
                     }
                 }
-                val streakValue = streaks
-                Spacer(Modifier.height(4.dp))
-                AssistChip(
-                    onClick = {},
-                    label = { Text("Streak ${streakValue.current} • Best ${streakValue.longest}") }
-                )
-
                 template?.let {
                     Spacer(Modifier.height(8.dp))
                     val totalSeconds = it.segments.sumOf { it.seconds }
