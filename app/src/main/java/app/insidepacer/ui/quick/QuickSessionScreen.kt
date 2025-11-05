@@ -39,11 +39,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.di.Singleton
 import app.insidepacer.domain.Segment
 import app.insidepacer.service.startSessionService
-import app.insidepacer.ui.utils.formatSeconds
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -87,9 +88,9 @@ fun QuickSessionScreen() {
             Column {
                 val totalDuration = sessionState.segments.sumOf { it.seconds }
                 val remaining = totalDuration - sessionState.elapsedSec
-                Text("Session in progress: ${formatSeconds(sessionState.elapsedSec)} / ${formatSeconds(totalDuration)}")
-                Text("Time left: ${formatSeconds(remaining)}")
-                Text("Current Speed: ${sessionState.speed}, next change in ${formatSeconds(sessionState.nextChangeInSec)}")
+                Text("Session in progress: ${formatDuration(sessionState.elapsedSec)} / ${formatDuration(totalDuration)}")
+                Text("Time left: ${formatDuration(remaining)}")
+                Text("Current Speed: ${formatSpeed(sessionState.speed, units)} • Next change in ${formatDuration(sessionState.nextChangeInSec)}")
             }
         }
 
@@ -103,7 +104,7 @@ fun QuickSessionScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Segment ${i + 1}: ${seg.speed} for ${formatSeconds(seg.seconds)}")
+                    Text("Segment ${i + 1}: ${formatSpeed(seg.speed, units)} for ${formatDuration(seg.seconds)}")
                     Row {
                         IconButton(onClick = {
                             val s = segments.toMutableList()
@@ -157,7 +158,7 @@ fun QuickSessionScreen() {
                                 segments = segments + Segment(speed, seconds)
                             }
                         }) {
-                            Text("$speed")
+                            Text(formatSpeed(speed, units))
                         }
                     }
                 }
@@ -166,7 +167,7 @@ fun QuickSessionScreen() {
 
         val totalSeconds = segments.sumOf { it.seconds }
         if (totalSeconds > 0) {
-            Text("Total duration: ${formatSeconds(totalSeconds)}")
+            Text("Total duration: ${formatDuration(totalSeconds)}")
         }
         Spacer(modifier = Modifier.height(16.dp))
 

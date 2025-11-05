@@ -28,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.ProgramPrefs
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.ProgramRepo
@@ -38,7 +40,6 @@ import app.insidepacer.data.inRange
 import app.insidepacer.data.templateIdAt
 import app.insidepacer.di.Singleton
 import app.insidepacer.service.startSessionService
-import app.insidepacer.ui.utils.formatSeconds
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -127,7 +128,7 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                 template?.let {
                     Spacer(Modifier.height(8.dp))
                     val totalSeconds = it.segments.sumOf { it.seconds }
-                    Text("Workout duration: ${formatSeconds(totalSeconds)}")
+                    Text("Workout duration: ${formatDuration(totalSeconds)}")
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -166,9 +167,9 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                 if (sessionState.active) {
                     val totalDuration = sessionState.segments.sumOf { it.seconds }
                     val remaining = totalDuration - sessionState.elapsedSec
-                    Text("Session in progress: ${formatSeconds(sessionState.elapsedSec)} / ${formatSeconds(totalDuration)}")
-                    Text("Time left: ${formatSeconds(remaining)}")
-                    Text("Current Speed: ${sessionState.speed}, next change in ${formatSeconds(sessionState.nextChangeInSec)}")
+                    Text("Session in progress: ${formatDuration(sessionState.elapsedSec)} / ${formatDuration(totalDuration)}")
+                    Text("Time left: ${formatDuration(remaining)}")
+                    Text("Current Speed: ${formatSpeed(sessionState.speed, units)} • Next change in ${formatDuration(sessionState.nextChangeInSec)}")
                 }
 
                 if (templateId == null) {

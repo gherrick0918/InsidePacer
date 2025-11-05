@@ -33,7 +33,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.SessionRepo
+import app.insidepacer.data.SettingsRepo
+import app.insidepacer.data.Units
 import app.insidepacer.domain.SessionLog
 import app.insidepacer.ui.components.RpgCallout
 import app.insidepacer.ui.components.RpgPanel
@@ -52,9 +56,11 @@ fun HistoryScreen(
 ) {
     val ctx = LocalContext.current
     val repo = remember { SessionRepo(ctx) }
+    val settings = remember { SettingsRepo(ctx) }
     var items by remember { mutableStateOf(emptyList<SessionLog>()) }
     var showConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val units by settings.units.collectAsState(initial = Units.MPH)
 
     fun refresh() { items = repo.loadAll().sortedByDescending { it.startMillis } }
     LaunchedEffect(Unit) { refresh() }
@@ -75,7 +81,7 @@ fun HistoryScreen(
                     }
                     OutlinedButton(onClick = {
                         scope.launch {
-                            val (sessionsCsv, segsCsv) = repo.exportCsv()
+                            val (sessionsCsv, segsCsv) = repo.exportCsv(units)
                             val uris = arrayListOf(
                                 FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", sessionsCsv),
                                 FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", segsCsv),
@@ -101,12 +107,17 @@ fun HistoryScreen(
             if (items.isNotEmpty()) {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
                     items(items) { log ->
-                        val mins = log.totalSeconds / 60
-                        val secs = log.totalSeconds % 60
                         val time = Instant.ofEpochMilli(log.startMillis).atZone(ZoneId.systemDefault()).toLocalTime()
                         val date = Instant.ofEpochMilli(log.startMillis).atZone(ZoneId.systemDefault()).toLocalDate()
                         val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()) }
                         val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault()) }
+                        val duration = formatDuration(log.totalSeconds)
+                        val avgSpeedMph = if (log.totalSeconds > 0) {
+                            log.segments.sumOf { it.speed * it.seconds } / log.totalSeconds
+                        } else {
+                            0.0
+                        }
+                        val avgSpeedText = avgSpeedMph.takeIf { it > 0 }?.let { formatSpeed(it, units) }
 
                         Surface(
                             tonalElevation = 1.dp,
@@ -122,8 +133,13 @@ fun HistoryScreen(
                                     "${date.format(dateFormatter)} at ${time.format(timeFormatter)}",
                                     style = MaterialTheme.typography.titleMedium
                                 )
+                                val statusPieces = buildList {
+                                    add(duration)
+                                    avgSpeedText?.let { add("Avg $it") }
+                                    if (log.aborted) add("stopped")
+                                }
                                 Text(
-                                    "${mins} min${if (secs > 0) " ${secs}s" else ""}${if (log.aborted) " • stopped" else ""}",
+                                    statusPieces.joinToString(" • "),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 Row(
@@ -174,8 +190,9 @@ fun HistoryDetailScreen(
     onBack: () -> Unit // kept for API symmetry; the shell handles the top bar/back
 ) {
     val sdf = remember { DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.getDefault()) }
-    val mins = log.totalSeconds / 60
-    val secs = log.totalSeconds % 60
+    val ctx = LocalContext.current
+    val settings = remember { SettingsRepo(ctx) }
+    val units by settings.units.collectAsState(initial = Units.MPH)
 
     Column(
         Modifier
@@ -187,8 +204,19 @@ fun HistoryDetailScreen(
             title = "Session chronicle",
             subtitle = sdf.format(Instant.ofEpochMilli(log.startMillis).atZone(ZoneId.systemDefault()))
         ) {
+            val duration = formatDuration(log.totalSeconds)
+            val avgSpeedMph = if (log.totalSeconds > 0) {
+                log.segments.sumOf { it.speed * it.seconds } / log.totalSeconds
+            } else {
+                0.0
+            }
+            val detailPieces = buildList {
+                add("Duration: $duration")
+                avgSpeedMph.takeIf { it > 0 }?.let { add("Avg ${formatSpeed(it, units)}") }
+                if (log.aborted) add("stopped")
+            }
             Text(
-                "Duration: ${mins} min${if (secs > 0) " ${secs}s" else ""}${if (log.aborted) " • stopped" else ""}",
+                detailPieces.joinToString(" • "),
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -209,8 +237,8 @@ fun HistoryDetailScreen(
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("${s.speed}", style = MaterialTheme.typography.bodyLarge)
-                                Text("${s.seconds}s", style = MaterialTheme.typography.bodyMedium)
+                                Text(formatSpeed(s.speed, units), style = MaterialTheme.typography.bodyLarge)
+                                Text(formatDuration(s.seconds), style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }

@@ -36,6 +36,7 @@ import app.insidepacer.data.ProfileRepo
 import app.insidepacer.data.ProgramGenerator
 import app.insidepacer.data.ProgramPrefs
 import app.insidepacer.data.ProgramRepo
+import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.TemplateRepo
 import app.insidepacer.domain.Program
@@ -62,6 +63,7 @@ fun GeneratePlanScreen(programId: String?, onDone: (Program) -> Unit) {
 
     val profile by profileRepo.profile.collectAsState(initial = UserProfile())
     val speeds by settings.speeds.collectAsState(initial = emptyList())
+    val units by settings.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
 
     var planName by remember { mutableStateOf("Adaptive Plan") }
     var weeksText by remember { mutableStateOf("8") }
@@ -129,9 +131,7 @@ fun GeneratePlanScreen(programId: String?, onDone: (Program) -> Unit) {
         HorizontalDivider()
         Text(
             "Saved speeds (${speeds.size}): " +
-                if (speeds.isEmpty()) "None" else speeds.joinToString(", ") {
-                    String.format(Locale.getDefault(), "%.1f", it)
-                }
+                if (speeds.isEmpty()) "None" else speeds.joinToString(", ") { formatSpeed(it, units) }
         )
         if (speeds.isEmpty()) {
             Text("Add speeds on the Pace Registry screen to enable plan generation.", color = colorScheme.error)

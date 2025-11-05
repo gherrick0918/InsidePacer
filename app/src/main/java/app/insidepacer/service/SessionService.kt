@@ -16,6 +16,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import app.insidepacer.R
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatPace
+import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.SessionRepo
 import app.insidepacer.data.Units
@@ -25,8 +28,6 @@ import app.insidepacer.domain.SessionLog
 import app.insidepacer.domain.SessionState
 import app.insidepacer.engine.SessionScheduler
 import app.insidepacer.ui.MainActivity
-import java.util.Locale
-import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -363,7 +364,7 @@ class SessionService : Service() {
         val upcomingSpeed = state.upcomingSpeed ?: return null
         val secondsUntil = state.nextChangeInSec.coerceAtLeast(0)
         if (secondsUntil <= 0 && !state.isPaused) return null
-        val formattedSpeed = formatSpeed(state.units, upcomingSpeed)
+        val formattedSpeed = formatSpeed(upcomingSpeed, state.units)
         val formattedTime = formatDuration(secondsUntil)
         return getString(R.string.session_notification_next_speed, formattedSpeed, formattedTime)
     }
@@ -400,46 +401,10 @@ class SessionService : Service() {
             parts += getString(R.string.session_status_running)
         }
         if (state.speed > 0) {
-            parts += "Speed ${formatSpeed(state.units, state.speed)}"
-            formatPace(state.units, state.speed)?.let { parts += "Pace $it" }
+            parts += "Speed ${formatSpeed(state.speed, state.units)}"
+            runCatching { formatPace(state.speed, state.units) }.getOrNull()?.let { parts += "Pace $it" }
         }
         return parts.joinToString(" • ")
-    }
-
-    private fun formatSpeed(units: Units, speed: Double): String {
-        val unitLabel = when (units) {
-            Units.MPH -> "mph"
-            Units.KMH -> "km/h"
-        }
-        return String.format(Locale.getDefault(), "%.1f %s", speed, unitLabel)
-    }
-
-    private fun formatPace(units: Units, speed: Double): String? {
-        if (speed <= 0) return null
-        val minutesTotal = 60.0 / speed
-        var minutes = minutesTotal.toInt()
-        var seconds = ((minutesTotal - minutes) * 60).roundToInt()
-        if (seconds == 60) {
-            seconds = 0
-            minutes += 1
-        }
-        val label = when (units) {
-            Units.MPH -> "min/mi"
-            Units.KMH -> "min/km"
-        }
-        return String.format(Locale.getDefault(), "%d:%02d %s", minutes, seconds, label)
-    }
-
-    private fun formatDuration(seconds: Int): String {
-        if (seconds <= 0) return "0:00"
-        val hours = seconds / 3600
-        val minutes = (seconds % 3600) / 60
-        val secs = seconds % 60
-        return if (hours > 0) {
-            String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, secs)
-        } else {
-            String.format(Locale.getDefault(), "%d:%02d", minutes, secs)
-        }
     }
 
     private fun matchesSessionIntent(intent: Intent?): Boolean {

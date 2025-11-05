@@ -18,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatSpeed
 import app.insidepacer.di.Singleton
 import app.insidepacer.ui.components.WorkoutPlan
 import app.insidepacer.ui.theme.Spacings
@@ -47,11 +49,11 @@ fun SessionScreen() {
     ) {
         Text(text = "Time remaining in segment", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(Spacings.small))
-        Text(text = sessionState.nextChangeInSec.toString(), style = MaterialTheme.typography.displayLarge)
+        Text(text = formatDuration(sessionState.nextChangeInSec), style = MaterialTheme.typography.displayLarge)
         Spacer(modifier = Modifier.height(Spacings.large))
 
         Text(text = "Current Speed", style = MaterialTheme.typography.titleMedium)
-        Text(text = sessionState.speed.toString(), style = MaterialTheme.typography.displayMedium)
+        Text(text = formatSpeed(sessionState.speed, sessionState.units), style = MaterialTheme.typography.displayMedium)
         Spacer(modifier = Modifier.height(Spacings.large))
 
         Row(horizontalArrangement = Arrangement.spacedBy(Spacings.medium)) {
@@ -65,7 +67,7 @@ fun SessionScreen() {
         Spacer(modifier = Modifier.height(Spacings.large))
 
         if (sessionState.segments.isNotEmpty()) {
-            WorkoutPlan(segments = sessionState.segments, currentSegment = sessionState.currentSegment)
+            WorkoutPlan(segments = sessionState.segments, currentSegment = sessionState.currentSegment, units = sessionState.units)
         }
     }
 }

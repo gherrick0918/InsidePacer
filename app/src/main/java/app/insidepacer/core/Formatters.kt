@@ -1,0 +1,76 @@
+package app.insidepacer.core
+
+import app.insidepacer.data.Units
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.text.NumberFormat
+import java.util.Locale
+import kotlin.math.roundToLong
+
+private const val MPH_TO_KMH = 1.609344
+private const val SECONDS_PER_HOUR = 3600.0
+
+fun formatDuration(totalSec: Long): String {
+    val clamped = totalSec.coerceAtLeast(0)
+    val hours = clamped / 3600
+    val minutes = ((clamped % 3600) / 60).toInt()
+    val seconds = (clamped % 60).toInt()
+    val locale = Locale.getDefault()
+    return if (hours > 0) {
+        String.format(locale, "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(locale, "%d:%02d", minutes, seconds)
+    }
+}
+
+fun formatDuration(totalSec: Int): String = formatDuration(totalSec.toLong())
+
+fun formatDuration(totalSec: Double): String = formatDuration(totalSec.roundToLong())
+
+fun formatSpeed(valueMpsOrMph: Double, units: Units): String {
+    val displayValue = speedToUnits(valueMpsOrMph, units)
+    val numberFormat = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+        minimumFractionDigits = 1
+        maximumFractionDigits = 1
+    }
+    return numberFormat.format(displayValue) + " " + speedUnitLabel(units)
+}
+
+fun formatPace(value: Double, units: Units): String {
+    require(value > 0) { "Speed must be positive to compute pace" }
+    val speedForUnits = speedToUnits(value, units)
+    val paceSeconds = (SECONDS_PER_HOUR / speedForUnits).roundToLong()
+    val minutes = (paceSeconds / 60).toInt()
+    val seconds = (paceSeconds % 60).toInt()
+    val locale = Locale.getDefault()
+    val label = when (units) {
+        Units.MPH -> "min/mi"
+        Units.KMH -> "min/km"
+    }
+    return String.format(locale, "%d:%02d %s", minutes, seconds, label)
+}
+
+fun speedToUnits(valueMph: Double, units: Units): Double = when (units) {
+    Units.MPH -> valueMph
+    Units.KMH -> valueMph * MPH_TO_KMH
+}
+
+fun speedFromUnits(value: Double, units: Units): Double = when (units) {
+    Units.MPH -> value
+    Units.KMH -> value / MPH_TO_KMH
+}
+
+fun speedUnitLabel(units: Units): String = when (units) {
+    Units.MPH -> "mph"
+    Units.KMH -> "km/h"
+}
+
+fun speedUnitToken(units: Units): String = when (units) {
+    Units.MPH -> "mph"
+    Units.KMH -> "kmh"
+}
+
+fun csvNumberFormat(): DecimalFormat = DecimalFormat("0.0", DecimalFormatSymbols(Locale.US)).apply {
+    minimumFractionDigits = 1
+    maximumFractionDigits = 1
+}
