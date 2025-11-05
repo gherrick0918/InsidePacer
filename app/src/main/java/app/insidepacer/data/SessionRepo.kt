@@ -4,15 +4,18 @@ import android.content.Context
 import app.insidepacer.core.csvNumberFormat
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.speedToUnits
-import app.insidepacer.core.speedUnitToken
+import app.insidepacer.core.speedUnitLabel
 import app.insidepacer.domain.Segment
 import app.insidepacer.domain.SessionLog
 import app.insidepacer.data.Units
+import app.insidepacer.csv.CsvFields
+import app.insidepacer.csv.CsvWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -52,13 +55,25 @@ class SessionRepo(private val ctx: Context) {
         val items = loadAll()
         val df = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val numberFormat = csvNumberFormat()
-        val speedToken = speedUnitToken(units)
-
         val sessionsCsv = File(ctx.cacheDir, "sessions.csv")
         val segsCsv = File(ctx.cacheDir, "session_segments.csv")
 
-        sessionsCsv.bufferedWriter().use { w ->
-            w.appendLine("id,start,end,total_duration_hms,segments_count,aborted,avg_speed_$speedToken")
+        CsvWriter.open(sessionsCsv).use { writer ->
+            val header = buildList {
+                add(CsvFields.SESSION_ID)
+                add(CsvFields.SESSION_START)
+                add(CsvFields.SESSION_END)
+                add(CsvFields.TOTAL_DURATION_HMS)
+                add(CsvFields.SEGMENTS_COUNT)
+                add(CsvFields.ABORTED)
+                add(CsvFields.avgSpeed(units))
+                add(CsvFields.UNITS)
+                add(CsvFields.DURATION_HMS)
+                add(CsvFields.avgSpeed(units))
+                add(CsvFields.maxSpeed(units))
+                add(CsvFields.NOTES)
+            }
+            writer.writeRow(header)
             items.forEach { s ->
                 val avgSpeedMph = if (s.totalSeconds > 0) {
                     s.segments.sumOf { it.speed * it.seconds } / s.totalSeconds
@@ -66,20 +81,62 @@ class SessionRepo(private val ctx: Context) {
                     0.0
                 }
                 val avgSpeed = numberFormat.format(speedToUnits(avgSpeedMph, units))
+                val avgSpeedWithUnit = if (s.totalSeconds > 0) {
+                    formatSpeedWithUnit(avgSpeedMph, units, numberFormat)
+                } else {
+                    ""
+                }
                 val duration = formatDuration(s.totalSeconds)
-                w.appendLine(
-                    "${s.id},${df.format(Date(s.startMillis))},${df.format(Date(s.endMillis))},$duration,${s.segments.size},${s.aborted},$avgSpeed"
+                val maxSpeed = s.segments.maxOfOrNull { it.speed }?.let { value ->
+                    formatSpeedWithUnit(value, units, numberFormat)
+                } ?: ""
+                // TODO: session notes are not captured yet; export empty column for stability.
+                writer.writeRow(
+                    listOf(
+                        s.id,
+                        df.format(Date(s.startMillis)),
+                        df.format(Date(s.endMillis)),
+                        duration,
+                        s.segments.size.toString(),
+                        s.aborted.toString(),
+                        avgSpeed,
+                        units.name,
+                        duration,
+                        avgSpeedWithUnit,
+                        maxSpeed,
+                        ""
+                    )
                 )
             }
         }
 
-        segsCsv.bufferedWriter().use { w ->
-            w.appendLine("session_id,index,speed_$speedToken,duration_hms")
+        CsvWriter.open(segsCsv).use { writer ->
+            val header = listOf(
+                CsvFields.SEGMENT_SESSION_ID,
+                CsvFields.SEGMENT_INDEX,
+                CsvFields.speed(units),
+                CsvFields.DURATION_HMS,
+                CsvFields.targetSpeed(units),
+                CsvFields.actualAvgSpeed(units),
+                CsvFields.PRE_CHANGE_WARN_SEC
+            )
+            writer.writeRow(header)
             items.forEach { s ->
                 s.segments.forEachIndexed { i, seg ->
                     val speed = numberFormat.format(speedToUnits(seg.speed, units))
                     val duration = formatDuration(seg.seconds)
-                    w.appendLine("${s.id},${i + 1},$speed,$duration")
+                    // TODO: actual average speed and pre-change warning seconds are not tracked per segment.
+                    writer.writeRow(
+                        listOf(
+                            s.id,
+                            (i + 1).toString(),
+                            speed,
+                            duration,
+                            speed,
+                            "",
+                            ""
+                        )
+                    )
                 }
             }
         }
@@ -89,5 +146,14 @@ class SessionRepo(private val ctx: Context) {
     suspend fun clear() = withContext(Dispatchers.IO) {
         val f = File(ctx.filesDir, "sessions.json")
         if (f.exists()) f.writeText("[]")  // or: f.delete()
+    }
+
+    private fun formatSpeedWithUnit(
+        valueMph: Double,
+        units: Units,
+        numberFormat: NumberFormat
+    ): String {
+        val display = numberFormat.format(speedToUnits(valueMph, units))
+        return "$display ${speedUnitLabel(units)}"
     }
 }

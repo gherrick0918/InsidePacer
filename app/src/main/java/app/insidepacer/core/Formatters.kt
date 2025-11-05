@@ -19,7 +19,7 @@ fun formatDuration(totalSec: Long): String {
     return if (hours > 0) {
         String.format(locale, "%d:%02d:%02d", hours, minutes, seconds)
     } else {
-        String.format(locale, "%d:%02d", minutes, seconds)
+        String.format(locale, "%02d:%02d", minutes, seconds)
     }
 }
 
