@@ -78,6 +78,12 @@ class SessionService : Service() {
 
     private val pendingStartRequests = mutableListOf<StartRequest>()
 
+    @Volatile
+    private var hasPendingStartCommand = false
+
+    @Volatile
+    private var hasObservedActiveSession = false
+
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -122,6 +128,8 @@ class SessionService : Service() {
         val currentScheduler = scheduler
         val currentState = currentScheduler?.state?.value
         if (currentState?.active == true) {
+            hasPendingStartCommand = false
+            hasObservedActiveSession = true
             ServiceCompat.startForeground(
                 this,
                 NOTIFICATION_ID,
@@ -130,6 +138,9 @@ class SessionService : Service() {
             )
             return
         }
+
+        hasPendingStartCommand = true
+        hasObservedActiveSession = false
 
         ServiceCompat.startForeground(
             this,
@@ -153,6 +164,7 @@ class SessionService : Service() {
             val segments: List<Segment> = intent.getParcelableArrayList(EXTRA_SEGMENTS, Segment::class.java) ?: emptyList()
             val playableSegments = segments.filter { it.seconds > 0 }
             if (playableSegments.isEmpty()) {
+                hasPendingStartCommand = false
                 withContext(Dispatchers.Main) { stopSelfResult(startId) }
                 return@launch
             }
@@ -170,6 +182,7 @@ class SessionService : Service() {
             scheduler.setVoiceEnabled(voiceOn)
             scheduler.setBeepsEnabled(beepOn)
             scheduler.setHapticsEnabled(hapticsOn)
+            hasPendingStartCommand = false
             scheduler.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
                 val sessionId = scheduler.state.value.sessionId ?: return@start
                 scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -363,12 +376,26 @@ class SessionService : Service() {
 
     private fun updateNotification(state: SessionState) {
         if (state.active) {
+            hasObservedActiveSession = true
             val notification = buildNotification(state)
-            notificationManager.notify(NOTIFICATION_ID, notification)
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                notification,
+                foregroundType()
+            )
         } else {
-            notificationManager.cancel(NOTIFICATION_ID)
-            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            if (hasPendingStartCommand) {
+                notificationManager.notify(NOTIFICATION_ID, buildStartingNotification())
+                return
+            }
+
+            if (hasObservedActiveSession) {
+                hasObservedActiveSession = false
+                notificationManager.cancel(NOTIFICATION_ID)
+                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
     }
 
