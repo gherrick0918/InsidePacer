@@ -11,6 +11,8 @@ fun Context.startSessionService(
     units: Units,
     preChange: Int,
     voiceOn: Boolean,
+    beepOn: Boolean,
+    hapticsOn: Boolean,
     programId: String? = null,
     epochDay: Long? = null
 ) {
@@ -22,6 +24,8 @@ fun Context.startSessionService(
         .putParcelableArrayListExtra(SessionService.EXTRA_SEGMENTS, ArrayList(playableSegments))
         .putExtra(SessionService.EXTRA_PRECHANGE_SEC, preChange)
         .putExtra(SessionService.EXTRA_VOICE, voiceOn)
+        .putExtra(SessionService.EXTRA_BEEP, beepOn)
+        .putExtra(SessionService.EXTRA_HAPTICS, hapticsOn)
         .putExtra(SessionService.EXTRA_UNITS, units.name)
 
     programId?.let { intent.putExtra(SessionService.EXTRA_PROGRAM_ID, it) }

@@ -78,6 +78,7 @@ class SessionScheduler(
                 var segIdx = 0
                 for (seg in segments) {
                     timeRemaining = seg.seconds
+                    cuePlayer.onSegmentStarted(seg.seconds)
                     val segmentStartElapsed = elapsed
                     updateState(
                         sessionId = sessionId,
@@ -101,7 +102,7 @@ class SessionScheduler(
                         if (!isActive) break
 
                         if (timeRemaining <= 3) {
-                            cuePlayer.beep()
+                            cuePlayer.countdownTick(timeRemaining)
                         } else {
                             delay(1000)
                         }
@@ -167,6 +168,14 @@ class SessionScheduler(
 
     fun setVoiceEnabled(enabled: Boolean) {
         cuePlayer.setVoiceEnabled(enabled)
+    }
+
+    fun setBeepsEnabled(enabled: Boolean) {
+        cuePlayer.setBeepsEnabled(enabled)
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        cuePlayer.setHapticsEnabled(enabled)
     }
 
     fun pause() {

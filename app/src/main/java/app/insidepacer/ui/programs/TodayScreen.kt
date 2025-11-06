@@ -87,6 +87,8 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
 
     val voiceEnabled by settingsRepo.voiceEnabled.collectAsState(initial = true)
     val preChange by settingsRepo.preChangeSeconds.collectAsState(initial = 10)
+    val beepEnabled by settingsRepo.beepEnabled.collectAsState(initial = true)
+    val hapticsEnabled by settingsRepo.hapticsEnabled.collectAsState(initial = false)
     val units by settingsRepo.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
 
     when {
@@ -160,6 +162,8 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                                 units = units,
                                 preChange = preChange,
                                 voiceOn = voiceEnabled,
+                                beepOn = beepEnabled,
+                                hapticsOn = hapticsEnabled,
                                 programId = program.id,
                                 epochDay = epochDay
                             )

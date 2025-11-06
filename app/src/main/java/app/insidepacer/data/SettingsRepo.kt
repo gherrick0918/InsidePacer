@@ -27,17 +27,29 @@ class SettingsRepo(private val context: Context) {
 
     private val KEY_VOICE_ENABLED   = booleanPreferencesKey("voice_enabled")
     private val KEY_PRECHANGE_SEC   = intPreferencesKey("prechange_seconds")
+    private val KEY_BEEP_ENABLED    = booleanPreferencesKey("beep_enabled")
+    private val KEY_HAPTIC_ENABLED  = booleanPreferencesKey("haptic_enabled")
 
     // Defaults
     val voiceEnabled = context.settingsDataStore.data.map { it[KEY_VOICE_ENABLED] ?: true }
     val preChangeSeconds = context.settingsDataStore.data.map { it[KEY_PRECHANGE_SEC] ?: 10 }
+    val beepEnabled = context.settingsDataStore.data.map { it[KEY_BEEP_ENABLED] ?: true }
+    val hapticsEnabled = context.settingsDataStore.data.map { it[KEY_HAPTIC_ENABLED] ?: false }
 
     suspend fun setVoiceEnabled(enabled: Boolean) {
-      context.settingsDataStore.edit { it[KEY_VOICE_ENABLED] = enabled }
+        context.settingsDataStore.edit { it[KEY_VOICE_ENABLED] = enabled }
     }
 
     suspend fun setPreChangeSeconds(sec: Int) {
-      context.settingsDataStore.edit { it[KEY_PRECHANGE_SEC] = sec.coerceIn(3, 30) }
+        context.settingsDataStore.edit { it[KEY_PRECHANGE_SEC] = sec.coerceIn(3, 30) }
+    }
+
+    suspend fun setBeepEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { it[KEY_BEEP_ENABLED] = enabled }
+    }
+
+    suspend fun setHapticsEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { it[KEY_HAPTIC_ENABLED] = enabled }
     }
 
 

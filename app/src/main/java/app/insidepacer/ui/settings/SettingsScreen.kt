@@ -23,6 +23,8 @@ fun SettingsScreen() {
 
   val voiceEnabled by repo.voiceEnabled.collectAsState(initial = true)
   val preChangeSec by repo.preChangeSeconds.collectAsState(initial = 10)
+  val beepEnabled by repo.beepEnabled.collectAsState(initial = true)
+  val hapticsEnabled by repo.hapticsEnabled.collectAsState(initial = false)
   val units by repo.units.collectAsState(initial = Units.MPH)
 
   Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -32,6 +34,20 @@ fun SettingsScreen() {
       Text("Voice prompts")
       Switch(checked = voiceEnabled, onCheckedChange = { on ->
         scope.launch { repo.setVoiceEnabled(on) }
+      })
+    }
+
+    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+      Text("Beep cues")
+      Switch(checked = beepEnabled, onCheckedChange = { on ->
+        scope.launch { repo.setBeepEnabled(on) }
+      })
+    }
+
+    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+      Text("Haptics")
+      Switch(checked = hapticsEnabled, onCheckedChange = { on ->
+        scope.launch { repo.setHapticsEnabled(on) }
       })
     }
 
