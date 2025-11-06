@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import app.insidepacer.di.Singleton
 import app.insidepacer.ui.theme.AppTheme
 import kotlinx.coroutines.launch
+import app.insidepacer.backup.ui.ActivityTracker
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
@@ -28,5 +29,15 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        ActivityTracker.onStart(this)
+    }
+
+    override fun onStop() {
+        ActivityTracker.onStop(this)
+        super.onStop()
     }
 }

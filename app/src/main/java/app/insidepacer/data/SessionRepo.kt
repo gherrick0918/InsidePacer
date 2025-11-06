@@ -31,8 +31,16 @@ class SessionRepo(private val ctx: Context) {
     suspend fun append(log: SessionLog) = withContext(Dispatchers.IO) {
         val all = loadAll().toMutableList()
         all += log
+        writeAll(all)
+    }
+
+    suspend fun replaceAll(logs: List<SessionLog>) = withContext(Dispatchers.IO) {
+        writeAll(logs)
+    }
+
+    private fun writeAll(logs: List<SessionLog>) {
         val tmp = File.createTempFile("sessions", ".json", ctx.cacheDir)
-        tmp.writeText(json.encodeToString(ListSerializer(SessionLog.serializer()), all))
+        tmp.writeText(json.encodeToString(ListSerializer(SessionLog.serializer()), logs))
         tmp.copyTo(file, overwrite = true)
         tmp.delete()
     }
