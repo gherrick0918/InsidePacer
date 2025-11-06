@@ -13,6 +13,7 @@ import app.insidepacer.backup.DriveBackupMeta
 import app.insidepacer.backup.ui.ActivityTracker
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.auth.api.identity.SignOutRequest
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -121,8 +122,10 @@ class DriveBackupDataSourceImpl(
         runCatching {
             credentialManager.clearCredentialState(ClearCredentialStateRequest())
         }
-        runCatching {
-            Identity.getSignInClient(appContext).signOut().await()
+        try {
+            signOutFromIdentity()
+        } catch (_: Exception) {
+            // Ignore identity client sign-out failures; credential state was cleared above.
         }
     }
 
@@ -143,15 +146,13 @@ class DriveBackupDataSourceImpl(
     }
 
     private suspend fun requestGoogleAccount(activity: Activity): GoogleAccount {
-        val serverClientId = try {
-            activity.getString(R.string.backup_google_server_client_id)
-        } catch (_: Exception) {
-            ""
-        }
-        val option = GetGoogleIdOption.Builder()
+        val serverClientId = readServerClientId(activity)
+        val optionBuilder = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(serverClientId)
-            .build()
+        if (!serverClientId.isNullOrBlank()) {
+            optionBuilder.setServerClientId(serverClientId)
+        }
+        val option = optionBuilder.build()
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(option)
             .build()
@@ -168,6 +169,17 @@ class DriveBackupDataSourceImpl(
         return GoogleAccount(email = email, accountId = accountId, displayName = displayName)
     }
 
+    private suspend fun signOutFromIdentity() {
+        val signInClient = Identity.getSignInClient(appContext)
+        val serverClientId = readServerClientId(appContext)
+        val request = SignOutRequest.Builder().apply {
+            if (!serverClientId.isNullOrBlank()) {
+                setServerClientId(serverClientId)
+            }
+        }.build()
+        signInClient.signOut(request).await()
+    }
+
     private fun parseInstant(dateTime: DateTime?): Instant {
         val text = dateTime?.toStringRfc3339() ?: Instant.DISTANT_PAST.toString()
         return runCatching { Instant.parse(text) }.getOrElse { Instant.DISTANT_PAST }
@@ -181,6 +193,12 @@ class DriveBackupDataSourceImpl(
         val payloadJson = JSONObject(String(payload, StandardCharsets.UTF_8))
         val email = payloadJson.optString("email", "")
         return email.takeIf { it.isNotBlank() }
+    }
+
+    private fun readServerClientId(context: Context): String? {
+        return runCatching { context.getString(R.string.backup_google_server_client_id) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
     }
 
     companion object {
