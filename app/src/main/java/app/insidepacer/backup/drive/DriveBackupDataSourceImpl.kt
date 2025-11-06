@@ -84,7 +84,7 @@ class DriveBackupDataSourceImpl(
                 id = file.id,
                 name = file.name,
                 modifiedTime = parseInstant(file.modifiedTime),
-                sizeBytes = file.size
+                sizeBytes = file.getSize()?.toLong()
             )
         }
     }
@@ -105,7 +105,7 @@ class DriveBackupDataSourceImpl(
             id = created.id,
             name = created.name,
             modifiedTime = parseInstant(created.modifiedTime),
-            sizeBytes = created.size
+            sizeBytes = created.getSize()?.toLong()
         )
     }
 

@@ -60,13 +60,14 @@ class LocalCrypto(private val keyProvider: KeyProvider) {
 
         fun create(context: Context): LocalCrypto {
             val appContext = context.applicationContext
-            val masterKey = MasterKey.Builder(appContext)
+            val masterKeyAlias = MASTER_KEY_ALIAS
+            val masterKey = MasterKey.Builder(appContext, masterKeyAlias)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
             val provider = object : KeyProvider {
                 override fun getOrCreateKey(): SecretKey {
                     val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
-                    val entry = keyStore.getEntry(masterKey.keyAlias, null) as? KeyStore.SecretKeyEntry
+                    val entry = keyStore.getEntry(masterKeyAlias, null) as? KeyStore.SecretKeyEntry
                         ?: throw IllegalStateException("MasterKey entry missing")
                     return entry.secretKey
                 }
@@ -75,5 +76,6 @@ class LocalCrypto(private val keyProvider: KeyProvider) {
         }
 
         private const val ANDROID_KEY_STORE = "AndroidKeyStore"
+        private const val MASTER_KEY_ALIAS = "insidepacer_backup_master_key"
     }
 }
