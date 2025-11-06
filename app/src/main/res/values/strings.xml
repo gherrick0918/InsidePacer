@@ -12,4 +12,19 @@
     <string name="session_notification_elapsed_only">Elapsed %1$s</string>
     <string name="session_notification_next_speed">Next %1$s in %2$s</string>
     <string name="session_starting_up">Starting up</string>
+    <string name="backup_sign_in">Sign in with Google</string>
+    <string name="backup_signed_in">Signed in as %1$s</string>
+    <string name="backup_signed_in_status">Signed in as %1$s</string>
+    <string name="backup_signed_out">Signed out</string>
+    <string name="backup_now">Back up now</string>
+    <string name="backup_restore">Restore</string>
+    <string name="backup_sign_out">Sign out</string>
+    <string name="backup_success_backup">Backup completed</string>
+    <string name="backup_success_restore">Restored %1$d templates, %2$d programs, %3$d sessions</string>
+    <string name="backup_error_generic">Something went wrong. Try again.</string>
+    <string name="backup_last_backup">Last backup: %1$s</string>
+    <string name="backup_last_restore">Last restore: %1$s</string>
+    <string name="backup_time_never">Never</string>
+    <string name="backup_privacy">Backups are private to your Google account and stored in the app’s hidden Drive space. We encrypt before upload and only use your email for sign-in.</string>
+    <string name="backup_google_server_client_id" translatable="false"></string>
 </resources>
