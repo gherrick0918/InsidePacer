@@ -8,8 +8,8 @@ import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
+import app.insidepacer.R
 import app.insidepacer.backup.DriveBackupMeta
-import app.insidepacer.backup.R
 import app.insidepacer.backup.ui.ActivityTracker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions

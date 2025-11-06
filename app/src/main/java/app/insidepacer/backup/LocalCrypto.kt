@@ -66,7 +66,7 @@ class LocalCrypto(private val keyProvider: KeyProvider) {
             val provider = object : KeyProvider {
                 override fun getOrCreateKey(): SecretKey {
                     val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
-                    val entry = keyStore.getEntry(masterKey.alias, null) as? KeyStore.SecretKeyEntry
+                    val entry = keyStore.getEntry(masterKey.keyAlias, null) as? KeyStore.SecretKeyEntry
                         ?: throw IllegalStateException("MasterKey entry missing")
                     return entry.secretKey
                 }

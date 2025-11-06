@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import app.insidepacer.backup.R
+import app.insidepacer.R
 
 @Composable
 fun BackupSettingsCard(viewModel: BackupSettingsViewModel) {
@@ -53,9 +53,9 @@ fun BackupSettingsCard(viewModel: BackupSettingsViewModel) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             Text(uiState.privacyMessage, style = MaterialTheme.typography.bodySmall)
-            if (uiState.errorMessage != null) {
+            uiState.errorMessage?.let { error ->
                 Text(
-                    text = uiState.errorMessage,
+                    text = error,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
