@@ -11,10 +11,8 @@ import androidx.credentials.exceptions.GetCredentialException
 import app.insidepacer.R
 import app.insidepacer.backup.DriveBackupMeta
 import app.insidepacer.backup.ui.ActivityTracker
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.GoogleApiAvailability
-import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -47,11 +45,6 @@ class DriveBackupDataSourceImpl(
     private val driveRef = AtomicReference<Drive?>()
     private val accountRef = AtomicReference<GoogleAccount?>()
     private val mutex = Mutex()
-
-    private val googleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-        .requestEmail()
-        .requestScopes(Scope(DriveScopes.DRIVE_APPDATA))
-        .build()
 
     override suspend fun ensureSignedIn(): GoogleAccount = mutex.withLock {
         accountRef.get()?.let { existing ->
@@ -128,7 +121,9 @@ class DriveBackupDataSourceImpl(
         runCatching {
             credentialManager.clearCredentialState(ClearCredentialStateRequest())
         }
-        GoogleSignIn.getClient(appContext, googleSignInOptions).signOut().await()
+        runCatching {
+            Identity.getSignInClient(appContext).signOut().await()
+        }
     }
 
     private fun ensureDrive(account: GoogleAccount): Drive {
@@ -184,7 +179,8 @@ class DriveBackupDataSourceImpl(
         if (parts.size < 2) return null
         val payload = Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
         val payloadJson = JSONObject(String(payload, StandardCharsets.UTF_8))
-        return payloadJson.optString("email", null)
+        val email = payloadJson.optString("email", "")
+        return email.takeIf { it.isNotBlank() }
     }
 
     companion object {
