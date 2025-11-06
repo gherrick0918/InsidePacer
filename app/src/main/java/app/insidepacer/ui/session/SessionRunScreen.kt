@@ -35,6 +35,8 @@ fun SessionRunScreen() {
     val units by settingsRepo.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
     val preChangeSeconds by settingsRepo.preChangeSeconds.collectAsState(initial = 10)
     val voiceEnabled by settingsRepo.voiceEnabled.collectAsState(initial = true)
+    val beepEnabled by settingsRepo.beepEnabled.collectAsState(initial = true)
+    val hapticsEnabled by settingsRepo.hapticsEnabled.collectAsState(initial = false)
 
     var running by rememberSaveable { mutableStateOf(false) }
     var paused by rememberSaveable { mutableStateOf(false) }
@@ -58,7 +60,9 @@ fun SessionRunScreen() {
                             segments = demo,
                             units = units,
                             preChange = preChangeSeconds,
-                            voiceOn = voiceEnabled
+                            voiceOn = voiceEnabled,
+                            beepOn = beepEnabled,
+                            hapticsOn = hapticsEnabled
                         )
                         running = true
                         paused = false

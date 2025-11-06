@@ -53,6 +53,8 @@ class SessionService : Service() {
         const val EXTRA_SEGMENTS = "segments"
         const val EXTRA_PRECHANGE_SEC = "prechange"
         const val EXTRA_VOICE = "voice"
+        const val EXTRA_BEEP = "beep"
+        const val EXTRA_HAPTICS = "haptics"
         const val EXTRA_UNITS = "units"
         const val EXTRA_PROGRAM_ID = "program_id"
         const val EXTRA_EPOCH_DAY = "epoch_day"
@@ -136,6 +138,8 @@ class SessionService : Service() {
 
             val preChange = intent.getIntExtra(EXTRA_PRECHANGE_SEC, 10)
             val voiceOn = intent.getBooleanExtra(EXTRA_VOICE, true)
+            val beepOn = intent.getBooleanExtra(EXTRA_BEEP, true)
+            val hapticsOn = intent.getBooleanExtra(EXTRA_HAPTICS, false)
             val unitsName = intent.getStringExtra(EXTRA_UNITS)
             val programId = intent.getStringExtra(EXTRA_PROGRAM_ID)
             val epochDay = if (intent.hasExtra(EXTRA_EPOCH_DAY)) intent.getLongExtra(EXTRA_EPOCH_DAY, 0L) else null
@@ -143,6 +147,8 @@ class SessionService : Service() {
             val units = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
 
             scheduler?.setVoiceEnabled(voiceOn)
+            scheduler?.setBeepsEnabled(beepOn)
+            scheduler?.setHapticsEnabled(hapticsOn)
             scheduler?.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
                 val sessionId = scheduler?.state?.value?.sessionId ?: return@start
                 scope.launch(start = CoroutineStart.UNDISPATCHED) {

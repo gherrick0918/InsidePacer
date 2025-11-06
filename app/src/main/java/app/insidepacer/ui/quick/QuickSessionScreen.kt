@@ -66,6 +66,8 @@ fun QuickSessionScreen() {
     val speeds by settingsRepo.speeds.collectAsState(initial = emptyList())
     val preChangeSeconds by settingsRepo.preChangeSeconds.collectAsState(initial = 10)
     val voiceEnabled by settingsRepo.voiceEnabled.collectAsState(initial = true)
+    val beepEnabled by settingsRepo.beepEnabled.collectAsState(initial = true)
+    val hapticsEnabled by settingsRepo.hapticsEnabled.collectAsState(initial = false)
 
     var segments by remember { mutableStateOf(emptyList<Segment>()) }
     var showResetDialog by remember { mutableStateOf(false) }
@@ -196,7 +198,9 @@ fun QuickSessionScreen() {
                             segments = segments,
                             units = units,
                             preChange = preChangeSeconds,
-                            voiceOn = voiceEnabled
+                            voiceOn = voiceEnabled,
+                            beepOn = beepEnabled,
+                            hapticsOn = hapticsEnabled
                         )
                     },
                     enabled = segments.isNotEmpty(),

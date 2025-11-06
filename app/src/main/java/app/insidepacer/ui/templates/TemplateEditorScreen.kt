@@ -76,6 +76,8 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
     val settings = remember { SettingsRepo(context) }
     val voiceEnabled by settings.voiceEnabled.collectAsState(initial = true)
     val preChange by settings.preChangeSeconds.collectAsState(initial = 10)
+    val beepEnabled by settings.beepEnabled.collectAsState(initial = true)
+    val hapticsEnabled by settings.hapticsEnabled.collectAsState(initial = false)
     val units by settings.units.collectAsState(initial = app.insidepacer.data.Units.MPH)
     val speedFormatter = remember(units) {
         NumberFormat.getNumberInstance(Locale.getDefault()).apply {
@@ -197,7 +199,9 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
                     segments = segments,
                     units = units,
                     preChange = preChange,
-                    voiceOn = voiceEnabled
+                    voiceOn = voiceEnabled,
+                    beepOn = beepEnabled,
+                    hapticsOn = hapticsEnabled
                 )
             }) {
                 Icon(Icons.Default.PlayArrow, "")

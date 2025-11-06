@@ -4,6 +4,9 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import app.insidepacer.core.formatDuration
@@ -12,13 +15,14 @@ import app.insidepacer.data.Units
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.SupervisorJob
-import java.util.*
+import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 class CuePlayer(
@@ -26,9 +30,21 @@ class CuePlayer(
     private val duckingManager: CueDuckingManager,
 ) : TextToSpeech.OnInitListener {
     private val tts: TextToSpeech
-    private val beeper = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+    private val beeper = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+    private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        ctx.getSystemService(Vibrator::class.java)
+    } else {
+        @Suppress("DEPRECATION")
+        ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    }
+    private val countdownPlanner = CountdownCuePlanner()
+
     @Volatile
     private var voiceOn = true
+    @Volatile
+    private var beepsOn = true
+    @Volatile
+    private var hapticsOn = false
 
     private val ttsInitialized = CompletableDeferred<Unit>()
     private val utteranceCompletions = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
@@ -71,6 +87,18 @@ class CuePlayer(
         voiceOn = on
     }
 
+    fun setBeepsEnabled(on: Boolean) {
+        beepsOn = on
+    }
+
+    fun setHapticsEnabled(on: Boolean) {
+        hapticsOn = on
+    }
+
+    fun onSegmentStarted(durationSeconds: Int) {
+        countdownPlanner.onSegmentStarted(durationSeconds)
+    }
+
     private suspend fun speakInternal(text: String, flush: Boolean) {
         if (!voiceOn) return
         ttsInitialized.await()
@@ -91,22 +119,44 @@ class CuePlayer(
         }
     }
 
-    suspend fun beep(intervalMs: Long = 1000L) {
-        duckingManager.withFocus(toneAttributes) {
-            playBeep(BEEP_DURATION_MS)
-            val remaining = (intervalMs - BEEP_DURATION_MS).coerceAtLeast(0L)
-            if (remaining > 0) {
-                delay(remaining)
-            }
+    suspend fun countdownTick(secondsRemaining: Int, intervalMs: Long = 1000L) {
+        val allowTick = countdownPlanner.allowTick(secondsRemaining, voiceOn)
+        val vibrate = allowTick && hapticsOn && vibrator?.hasVibrator() == true
+        val playTone = allowTick && beepsOn
+
+        if (playTone) {
+            playToneCue(TICK_TONE_TYPE, TICK_DURATION_MS, HAPTIC_TICK_MS, vibrate)
+        } else if (vibrate) {
+            fireHaptic(HAPTIC_TICK_MS)
+        }
+
+        val consumed = if (playTone) TICK_DURATION_MS.toLong() else 0L
+        val remaining = (intervalMs - consumed).coerceAtLeast(0L)
+        if (remaining > 0) {
+            delay(remaining)
         }
     }
 
     suspend fun countdown321(delayMs: Long = 1000) {
         ttsInitialized.await()
+        val digits = listOf("3", "2", "1")
+        for (digit in digits) {
+            val vibrate = hapticsOn && vibrator?.hasVibrator() == true
+            if (beepsOn) {
+                playToneCue(TICK_TONE_TYPE, TICK_DURATION_MS, HAPTIC_TICK_MS, vibrate)
+            } else if (vibrate) {
+                fireHaptic(HAPTIC_TICK_MS)
+            }
+            delay(150)
+            duckingManager.withFocus(speechAttributes) {
+                speakInternal(digit, flush = false)
+            }
+            val remaining = (delayMs - 150).coerceAtLeast(0)
+            if (remaining > 0) {
+                delay(remaining.toLong())
+            }
+        }
         duckingManager.withFocus(speechAttributes) {
-            playBeep(); delay(150); speakInternal("3", flush = false); delay(delayMs - 150)
-            playBeep(); delay(150); speakInternal("2", flush = false); delay(delayMs - 150)
-            playBeep(); delay(150); speakInternal("1", flush = false); delay(delayMs - 150)
             speakInternal("Go", flush = false)
         }
     }
@@ -132,10 +182,18 @@ class CuePlayer(
 
     fun changeNow(newSpeed: Double, units: Units) {
         scope.launch {
-            duckingManager.withFocus(speechAttributes) {
-                playBeep()
-                val formatted = formatSpeed(newSpeed, units)
-                speakInternal("Change speed now to $formatted", flush = true)
+            val vibrate = hapticsOn && vibrator?.hasVibrator() == true
+            if (beepsOn) {
+                playToneCue(CHIRP_TONE_TYPE, CHIRP_DURATION_MS, HAPTIC_CHIRP_MS, vibrate)
+            } else if (vibrate) {
+                fireHaptic(HAPTIC_CHIRP_MS)
+            }
+
+            if (voiceOn) {
+                duckingManager.withFocus(speechAttributes) {
+                    val formatted = formatSpeed(newSpeed, units)
+                    speakInternal("Change speed now to $formatted", flush = true)
+                }
             }
         }
     }
@@ -152,15 +210,47 @@ class CuePlayer(
         tts.stop()
         tts.shutdown()
         beeper.release()
+        vibrator?.cancel()
         scope.cancel()
     }
 
-    private suspend fun playBeep(durationMs: Int = BEEP_DURATION_MS) {
-        beeper.startTone(ToneGenerator.TONE_CDMA_PIP, durationMs)
+    private suspend fun playToneCue(
+        toneType: Int,
+        toneDurationMs: Int,
+        hapticDurationMs: Long,
+        vibrate: Boolean,
+    ) {
+        speechMutex.withLock {
+            duckingManager.withFocus(toneAttributes) {
+                if (vibrate) {
+                    fireHaptic(hapticDurationMs)
+                }
+                playTone(toneType, toneDurationMs)
+            }
+        }
+    }
+
+    private suspend fun playTone(toneType: Int, durationMs: Int) {
+        beeper.startTone(toneType, durationMs)
         delay(durationMs.toLong())
     }
 
+    private fun fireHaptic(durationMs: Long) {
+        val vib = vibrator ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vib.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vib.vibrate(durationMs)
+        }
+    }
+
     companion object {
-        private const val BEEP_DURATION_MS = 150
+        private const val TICK_TONE_TYPE = ToneGenerator.TONE_PROP_BEEP2
+        private const val CHIRP_TONE_TYPE = ToneGenerator.TONE_PROP_PROMPT
+        private const val TICK_DURATION_MS = 80
+        private const val CHIRP_DURATION_MS = 120
+        private const val HAPTIC_TICK_MS = 25L
+        private const val HAPTIC_CHIRP_MS = 30L
     }
 }
