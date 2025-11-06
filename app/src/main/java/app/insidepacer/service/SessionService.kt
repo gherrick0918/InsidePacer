@@ -71,15 +71,23 @@ class SessionService : Service() {
     private lateinit var sessionRepo: SessionRepo
     private lateinit var progressRepo: ProgramProgressRepo
     private lateinit var notificationManager: NotificationManager
+    @Volatile
+    private var isInitialized = false
+
+    private data class StartRequest(val intent: Intent, val startId: Int)
+
+    private val pendingStartRequests = mutableListOf<StartRequest>()
 
     override fun onCreate() {
         super.onCreate()
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        ensureChannel()
         scope.launch {
             scheduler = Singleton.getSessionScheduler(applicationContext)
             sessionRepo = SessionRepo(applicationContext)
             progressRepo = ProgramProgressRepo.getInstance(applicationContext)
-            notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            ensureChannel()
+            isInitialized = true
+            drainPendingStartRequests()
             scheduler?.state
                 ?.collectLatest { updateNotification(it) }
             scheduler?.state?.value?.takeIf { it.active }?.let { updateNotification(it) }
@@ -87,16 +95,15 @@ class SessionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        scheduler?.let { scheduler ->
-            when (intent?.action) {
-                ACTION_START -> handleStart(intent, startId)
-                ACTION_STOP -> if (matchesSessionIntent(intent)) scheduler.stop()
-                ACTION_SKIP -> if (matchesSessionIntent(intent)) scheduler.skip()
-                ACTION_PAUSE -> if (matchesSessionIntent(intent)) scheduler.pause()
-                ACTION_RESUME -> if (matchesSessionIntent(intent)) scheduler.resume()
-                ACTION_OBSERVE, null -> {
-                    // no-op: observation happens via state collector
-                }
+        val scheduler = scheduler
+        when (intent?.action) {
+            ACTION_START -> handleStart(intent, startId)
+            ACTION_STOP -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.stop()
+            ACTION_SKIP -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.skip()
+            ACTION_PAUSE -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.pause()
+            ACTION_RESUME -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.resume()
+            ACTION_OBSERVE, null -> {
+                // no-op: observation happens via state collector
             }
         }
         return START_NOT_STICKY
@@ -112,15 +119,18 @@ class SessionService : Service() {
     }
 
     private fun handleStart(intent: Intent, startId: Int) {
-        scheduler?.state?.value?.takeIf { it.active }?.let {
+        val currentScheduler = scheduler
+        val currentState = currentScheduler?.state?.value
+        if (currentState?.active == true) {
             ServiceCompat.startForeground(
                 this,
                 NOTIFICATION_ID,
-                buildNotification(it),
+                buildNotification(currentState),
                 foregroundType()
             )
             return
         }
+
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
@@ -128,6 +138,17 @@ class SessionService : Service() {
             foregroundType()
         )
 
+        if (!isInitialized || currentScheduler == null) {
+            synchronized(pendingStartRequests) {
+                pendingStartRequests += StartRequest(Intent(intent), startId)
+            }
+            return
+        }
+
+        beginSession(currentScheduler, intent, startId)
+    }
+
+    private fun beginSession(scheduler: SessionScheduler, intent: Intent, startId: Int) {
         scope.launch {
             val segments: List<Segment> = intent.getParcelableArrayList(EXTRA_SEGMENTS, Segment::class.java) ?: emptyList()
             val playableSegments = segments.filter { it.seconds > 0 }
@@ -146,11 +167,11 @@ class SessionService : Service() {
 
             val units = unitsName?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.MPH
 
-            scheduler?.setVoiceEnabled(voiceOn)
-            scheduler?.setBeepsEnabled(beepOn)
-            scheduler?.setHapticsEnabled(hapticsOn)
-            scheduler?.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
-                val sessionId = scheduler?.state?.value?.sessionId ?: return@start
+            scheduler.setVoiceEnabled(voiceOn)
+            scheduler.setBeepsEnabled(beepOn)
+            scheduler.setHapticsEnabled(hapticsOn)
+            scheduler.start(playableSegments, units, preChange) { startMs, endMs, elapsedSec, aborted ->
+                val sessionId = scheduler.state.value.sessionId ?: return@start
                 scope.launch(start = CoroutineStart.UNDISPATCHED) {
                     withContext(Dispatchers.IO + NonCancellable) {
                         logSession(sessionId, programId, startMs, endMs, playableSegments, elapsedSec, aborted)
@@ -159,6 +180,19 @@ class SessionService : Service() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private suspend fun drainPendingStartRequests() {
+        val requests = synchronized(pendingStartRequests) {
+            val copy = pendingStartRequests.toList()
+            pendingStartRequests.clear()
+            copy
+        }
+        requests.forEach { request ->
+            withContext(Dispatchers.Main) {
+                handleStart(request.intent, request.startId)
             }
         }
     }
