@@ -8,6 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import app.insidepacer.backup.BackupFeatureConfig
+import app.insidepacer.backup.ui.BackupSettingsCard
+import app.insidepacer.backup.ui.BackupSettingsViewModel
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.formatSpeed
 import app.insidepacer.core.speedUnitLabel
@@ -28,6 +32,11 @@ fun SettingsScreen() {
   val units by repo.units.collectAsState(initial = Units.MPH)
 
   Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    if (BackupFeatureConfig.enabled) {
+      val backupViewModel: BackupSettingsViewModel = viewModel(factory = BackupSettingsViewModel.Factory(ctx))
+      BackupSettingsCard(viewModel = backupViewModel)
+    }
+
     Text("Coach settings", style = MaterialTheme.typography.titleMedium)
 
     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
