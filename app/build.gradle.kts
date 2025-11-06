@@ -61,7 +61,7 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.api-client:google-api-client-android:1.35.2")
-    implementation("com.google.apis:google-api-services-drive:v3-rev20221102-2.0.0")
+    implementation("com.google.apis:google-api-services-drive:v3-rev20230815-2.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
     testImplementation(libs.junit)
