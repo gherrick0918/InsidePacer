@@ -13,7 +13,6 @@ import app.insidepacer.backup.DriveBackupMeta
 import app.insidepacer.backup.ui.ActivityTracker
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.GoogleApiAvailability
-import com.google.android.gms.auth.api.identity.SignOutRequest
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -171,13 +170,7 @@ class DriveBackupDataSourceImpl(
 
     private suspend fun signOutFromIdentity() {
         val signInClient = Identity.getSignInClient(appContext)
-        val serverClientId = readServerClientId(appContext)
-        val request = SignOutRequest.Builder().apply {
-            if (!serverClientId.isNullOrBlank()) {
-                setServerClientId(serverClientId)
-            }
-        }.build()
-        signInClient.signOut(request).await()
+        signInClient.signOut().await()
     }
 
     private fun parseInstant(dateTime: DateTime?): Instant {
