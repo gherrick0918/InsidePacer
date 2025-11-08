@@ -11,7 +11,6 @@ import androidx.credentials.exceptions.GetCredentialException
 import app.insidepacer.R
 import app.insidepacer.backup.DriveBackupMeta
 import app.insidepacer.backup.ui.ActivityTracker
-import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
@@ -30,7 +29,6 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
 import org.json.JSONObject
@@ -121,11 +119,6 @@ class DriveBackupDataSourceImpl(
         runCatching {
             credentialManager.clearCredentialState(ClearCredentialStateRequest())
         }
-        try {
-            signOutFromIdentity()
-        } catch (_: Exception) {
-            // Ignore identity client sign-out failures; credential state was cleared above.
-        }
     }
 
     private fun ensureDrive(account: GoogleAccount): Drive {
@@ -166,11 +159,6 @@ class DriveBackupDataSourceImpl(
         val accountId = credential.id
         val displayName = credential.displayName
         return GoogleAccount(email = email, accountId = accountId, displayName = displayName)
-    }
-
-    private suspend fun signOutFromIdentity() {
-        val signInClient = Identity.getSignInClient(appContext)
-        signInClient.signOut().await()
     }
 
     private fun parseInstant(dateTime: DateTime?): Instant {

@@ -30,7 +30,9 @@ android {
     }
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            pickFirsts.add("META-INF/DEPENDENCIES")
+            excludes.add("META-INF/AL2.0")
+            excludes.add("META-INF/LGPL2.1")
         }
     }
 }
