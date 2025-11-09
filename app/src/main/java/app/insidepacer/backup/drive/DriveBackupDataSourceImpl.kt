@@ -2,6 +2,7 @@ package app.insidepacer.backup.drive
 
 import android.accounts.Account
 import android.app.Activity
+import android.accounts.AccountManager
 import android.content.Context
 import android.content.Intent
 import android.util.Base64
@@ -168,10 +169,11 @@ class DriveBackupDataSourceImpl(
                 return credentialAccount
             }
         } else {
-            Log.w(TAG, "Server client ID missing. Falling back to GoogleSignIn API")
+            Log.w(TAG, "Server client ID missing. Falling back to Google account picker")
         }
 
-        return requestWithGoogleSignIn(activity, serverClientId)
+        Log.i(TAG, "Falling back to legacy Google account picker")
+        return requestWithAccountPicker(activity)
     }
 
     private suspend fun requestWithCredentialManager(
@@ -200,33 +202,21 @@ class DriveBackupDataSourceImpl(
         }
     }
 
-    private suspend fun requestWithGoogleSignIn(
+    private suspend fun requestWithAccountPicker(
         activity: Activity,
-        serverClientId: String?
     ): GoogleAccount {
         val componentActivity = activity as? ComponentActivity
             ?: throw IllegalStateException("Google sign-in requires a ComponentActivity host")
 
-        val account = try {
+        return try {
             withContext(Dispatchers.Main) {
-                val driveScope = Scope(DriveScopes.DRIVE_APPDATA)
-                val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .requestScopes(driveScope)
-                if (serverClientId != null) {
-                    Log.d(TAG, "Requesting ID token for GoogleSignIn fallback")
-                    gsoBuilder.requestIdToken(serverClientId)
-                }
-                val options = gsoBuilder.build()
-                val client = GoogleSignIn.getClient(componentActivity, options)
+                val credential = GoogleAccountCredential.usingOAuth2(
+                    activity,
+                    setOf(DriveScopes.DRIVE_APPDATA)
+                )
 
-                val existing = GoogleSignIn.getLastSignedInAccount(componentActivity)
-                if (existing != null && GoogleSignIn.hasPermissions(existing, driveScope)) {
-                    return@withContext existing
-                }
-
-                suspendCancellableCoroutine<GoogleSignInAccount> { cont ->
-                    val launcherKey = "googleSignIn:${UUID.randomUUID()}"
+                suspendCancellableCoroutine { cont ->
+                    val launcherKey = "accountPicker:${UUID.randomUUID()}"
                     lateinit var launcher: ActivityResultLauncher<Intent>
                     launcher = componentActivity.activityResultRegistry.register(
                         launcherKey,
@@ -236,23 +226,42 @@ class DriveBackupDataSourceImpl(
                             launcher.unregister()
                             return@register
                         }
+
                         try {
-                            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-                            val signedIn = task.getResult(ApiException::class.java)
-                            cont.resume(signedIn)
-                        } catch (err: ApiException) {
-                            if (err.statusCode == GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
-                                val status = googleStatusString(err.statusCode)
-                                Log.i(
-                                    TAG,
-                                    "Google sign-in canceled during result handling: $status"
-                                )
-                                cont.cancel(CancellationException("Google sign-in canceled ($status)").apply {
-                                    initCause(err)
-                                })
-                            } else {
-                                cont.resumeWithException(err)
+                            if (result.resultCode != Activity.RESULT_OK) {
+                                if (result.resultCode == Activity.RESULT_CANCELED) {
+                                    Log.i(TAG, "Google account picker canceled")
+                                    cont.cancel(CancellationException("Google account selection canceled"))
+                                } else {
+                                    cont.resumeWithException(
+                                        IllegalStateException("Google account selection failed with resultCode ${result.resultCode}")
+                                    )
+                                }
+                                return@register
                             }
+
+                            val data = result.data
+                                ?: throw IllegalStateException("Google account selection returned no data")
+
+                            val email = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+                                ?: data.getStringExtra("authAccount")
+                                ?: throw IllegalStateException("Unable to determine Google account email")
+
+                            val type = data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE)
+                            if (type != null && type != GOOGLE_ACCOUNT_TYPE) {
+                                throw IllegalStateException("Selected account is not a Google account: $type")
+                            }
+
+                            credential.selectedAccountName = email
+                            Log.d(TAG, "Google account picker selected: $email")
+
+                            cont.resume(
+                                GoogleAccount(
+                                    email = email,
+                                    accountId = email,
+                                    displayName = null
+                                )
+                            )
                         } catch (err: Exception) {
                             cont.resumeWithException(err)
                         } finally {
@@ -260,28 +269,17 @@ class DriveBackupDataSourceImpl(
                         }
                     }
 
-                    cont.invokeOnCancellation {
-                        launcher.unregister()
-                    }
-
-                    launcher.launch(client.signInIntent)
+                cont.invokeOnCancellation {
+                    launcher.unregister()
                 }
+
+                val intent = credential.newChooseAccountIntent()
+                launcher.launch(intent)
             }
         } catch (err: CancellationException) {
-            throw IllegalStateException(err.message ?: "Google sign-in canceled", err)
-        } catch (err: ApiException) {
-            val status = googleStatusString(err.statusCode)
-            Log.e(
-                TAG,
-                "Google sign-in failed with status $status: ${err.message}",
-                err
-            )
-            throw IllegalStateException(
-                "Google sign-in failed: $status",
-                err
-            )
+            throw IllegalStateException(err.message ?: "Google account selection canceled", err)
         } catch (err: Exception) {
-            throw IllegalStateException("Google sign-in failed: ${err.message}", err)
+            throw IllegalStateException("Google account selection failed: ${err.message}", err)
         }
 
         val email = account.email
