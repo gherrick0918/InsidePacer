@@ -214,7 +214,10 @@ class DriveBackupDataSourceImpl(
                     .requestEmail()
                     .requestScopes(driveScope)
                 if (serverClientId != null) {
-                    gsoBuilder.requestServerAuthCode(serverClientId, false)
+                    Log.i(
+                        TAG,
+                        "Ignoring server client ID for GoogleSignIn fallback to avoid DEVELOPER_ERROR"
+                    )
                 }
                 val options = gsoBuilder.build()
                 val client = GoogleSignIn.getClient(componentActivity, options)
