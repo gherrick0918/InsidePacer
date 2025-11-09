@@ -3,8 +3,12 @@ package app.insidepacer.backup.drive
 import android.accounts.Account
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.util.Base64
 import android.util.Log
+import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
@@ -12,7 +16,12 @@ import androidx.credentials.exceptions.GetCredentialException
 import app.insidepacer.R
 import app.insidepacer.backup.DriveBackupMeta
 import app.insidepacer.backup.ui.ActivityTracker
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -27,12 +36,17 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
 import org.json.JSONObject
+import java.util.UUID
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 class DriveBackupDataSourceImpl(
     private val context: Context,
@@ -141,10 +155,28 @@ class DriveBackupDataSourceImpl(
     private suspend fun requestGoogleAccount(activity: Activity): GoogleAccount {
         val serverClientId = readServerClientId(activity)
         Log.d(TAG, "Using serverClientId: $serverClientId")
-        if (serverClientId == null) {
-            throw IllegalStateException(activity.getString(R.string.backup_error_missing_server_client_id))
+
+        if (serverClientId != null) {
+            val credentialAccount = runCatching {
+                requestWithCredentialManager(activity, serverClientId)
+            }.onFailure { err ->
+                Log.w(TAG, "CredentialManager sign-in failed: ${err.message}", err)
+            }.getOrNull()
+
+            if (credentialAccount != null) {
+                return credentialAccount
+            }
+        } else {
+            Log.w(TAG, "Server client ID missing. Falling back to GoogleSignIn API")
         }
 
+        return requestWithGoogleSignIn(activity, serverClientId)
+    }
+
+    private suspend fun requestWithCredentialManager(
+        activity: Activity,
+        serverClientId: String
+    ): GoogleAccount = withContext(Dispatchers.Main) {
         val option = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(serverClientId)
@@ -160,12 +192,88 @@ class DriveBackupDataSourceImpl(
                 ?: throw IllegalStateException("Unable to determine Google account email")
             val accountId = credential.id
             val displayName = credential.displayName
-            return GoogleAccount(email = email, accountId = accountId, displayName = displayName)
+            GoogleAccount(email = email, accountId = accountId, displayName = displayName)
         } catch (ex: GetCredentialException) {
             Log.e(TAG, "Google sign-in failed. Type: ${ex.type}. Message: ${ex.message}", ex)
-            val detailedMessage = "Google sign-in failed. Type: ${ex.type}. Message: ${ex.message}"
-            throw IllegalStateException(detailedMessage, ex)
+            throw ex
         }
+    }
+
+    private suspend fun requestWithGoogleSignIn(
+        activity: Activity,
+        serverClientId: String?
+    ): GoogleAccount {
+        val componentActivity = activity as? ComponentActivity
+            ?: throw IllegalStateException("Google sign-in requires a ComponentActivity host")
+
+        val account = try {
+            withContext(Dispatchers.Main) {
+                val driveScope = Scope(DriveScopes.DRIVE_APPDATA)
+                val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                    .requestEmail()
+                    .requestScopes(driveScope)
+                if (serverClientId != null) {
+                    gsoBuilder.requestServerAuthCode(serverClientId, false)
+                }
+                val options = gsoBuilder.build()
+                val client = GoogleSignIn.getClient(componentActivity, options)
+
+                val existing = GoogleSignIn.getLastSignedInAccount(componentActivity)
+                if (existing != null && GoogleSignIn.hasPermissions(existing, driveScope)) {
+                    return@withContext existing
+                }
+
+                suspendCancellableCoroutine<GoogleSignInAccount> { cont ->
+                    val launcherKey = "googleSignIn:${UUID.randomUUID()}"
+                    lateinit var launcher: ActivityResultLauncher<Intent>
+                    launcher = componentActivity.activityResultRegistry.register(
+                        launcherKey,
+                        ActivityResultContracts.StartActivityForResult()
+                    ) { result ->
+                        if (!cont.isActive) {
+                            launcher.unregister()
+                            return@register
+                        }
+                        try {
+                            if (result.resultCode == Activity.RESULT_OK) {
+                                val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                                val signedIn = task.getResult(ApiException::class.java)
+                                cont.resume(signedIn)
+                            } else {
+                                cont.resumeWithException(
+                                    CancellationException("Google sign-in canceled")
+                                )
+                            }
+                        } catch (err: ApiException) {
+                            cont.resumeWithException(err)
+                        } finally {
+                            launcher.unregister()
+                        }
+                    }
+
+                cont.invokeOnCancellation {
+                    launcher.unregister()
+                }
+
+                launcher.launch(client.signInIntent)
+            }
+        } catch (err: CancellationException) {
+            throw IllegalStateException("Google sign-in canceled", err)
+        } catch (err: ApiException) {
+            throw IllegalStateException("Google sign-in failed: ${err.statusCode}", err)
+        } catch (err: Exception) {
+            throw IllegalStateException("Google sign-in failed: ${err.message}", err)
+        }
+
+        val email = account.email
+            ?: throw IllegalStateException("Unable to determine Google account email")
+        val accountId = account.id
+            ?: throw IllegalStateException("Unable to determine Google account id")
+        return GoogleAccount(
+            email = email,
+            accountId = accountId,
+            displayName = account.displayName
+        )
     }
 
     private fun parseInstant(dateTime: DateTime?): Instant {
