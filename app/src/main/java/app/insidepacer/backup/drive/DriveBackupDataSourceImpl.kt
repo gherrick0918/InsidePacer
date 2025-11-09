@@ -139,12 +139,11 @@ class DriveBackupDataSourceImpl(
 
     private suspend fun requestGoogleAccount(activity: Activity): GoogleAccount {
         val serverClientId = readServerClientId(activity)
-        val optionBuilder = GetGoogleIdOption.Builder()
+            ?: throw IllegalStateException(activity.getString(R.string.backup_error_missing_server_client_id))
+        val option = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
-        if (!serverClientId.isNullOrBlank()) {
-            optionBuilder.setServerClientId(serverClientId)
-        }
-        val option = optionBuilder.build()
+            .setServerClientId(serverClientId)
+            .build()
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(option)
             .build()
@@ -177,9 +176,26 @@ class DriveBackupDataSourceImpl(
     }
 
     private fun readServerClientId(context: Context): String? {
-        return runCatching { context.getString(R.string.backup_google_server_client_id) }
+        val explicit = runCatching { context.getString(R.string.backup_google_server_client_id) }
             .getOrNull()
-            ?.takeIf { it.isNotBlank() }
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        if (explicit != null) return explicit
+
+        val fallbackResId = context.resources.getIdentifier(
+            "default_web_client_id",
+            "string",
+            context.packageName
+        )
+        if (fallbackResId != 0) {
+            val fallback = runCatching { context.getString(fallbackResId) }
+                .getOrNull()
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            if (fallback != null) return fallback
+        }
+
+        return null
     }
 
     companion object {
