@@ -19,6 +19,7 @@ import app.insidepacer.backup.ui.ActivityTracker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
@@ -235,16 +236,23 @@ class DriveBackupDataSourceImpl(
                             return@register
                         }
                         try {
-                            if (result.resultCode == Activity.RESULT_OK) {
-                                val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-                                val signedIn = task.getResult(ApiException::class.java)
-                                cont.resume(signedIn)
-                            } else {
-                                cont.resumeWithException(
-                                    CancellationException("Google sign-in canceled")
-                                )
-                            }
+                            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                            val signedIn = task.getResult(ApiException::class.java)
+                            cont.resume(signedIn)
                         } catch (err: ApiException) {
+                            if (err.statusCode == GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
+                                val status = googleStatusString(err.statusCode)
+                                Log.i(
+                                    TAG,
+                                    "Google sign-in canceled during result handling: $status"
+                                )
+                                cont.cancel(CancellationException("Google sign-in canceled ($status)").apply {
+                                    initCause(err)
+                                })
+                            } else {
+                                cont.resumeWithException(err)
+                            }
+                        } catch (err: Exception) {
                             cont.resumeWithException(err)
                         } finally {
                             launcher.unregister()
@@ -259,9 +267,18 @@ class DriveBackupDataSourceImpl(
                 }
             }
         } catch (err: CancellationException) {
-            throw IllegalStateException("Google sign-in canceled", err)
+            throw IllegalStateException(err.message ?: "Google sign-in canceled", err)
         } catch (err: ApiException) {
-            throw IllegalStateException("Google sign-in failed: ${err.statusCode}", err)
+            val status = googleStatusString(err.statusCode)
+            Log.e(
+                TAG,
+                "Google sign-in failed with status $status: ${err.message}",
+                err
+            )
+            throw IllegalStateException(
+                "Google sign-in failed: $status",
+                err
+            )
         } catch (err: Exception) {
             throw IllegalStateException("Google sign-in failed: ${err.message}", err)
         }
@@ -313,6 +330,11 @@ class DriveBackupDataSourceImpl(
         }
 
         return null
+    }
+
+    private fun googleStatusString(statusCode: Int): String {
+        val name = GoogleSignInStatusCodes.getStatusCodeString(statusCode)
+        return "$name ($statusCode)"
     }
 
     companion object {
