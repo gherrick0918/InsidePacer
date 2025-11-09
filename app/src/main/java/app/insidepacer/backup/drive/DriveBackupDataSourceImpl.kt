@@ -251,11 +251,12 @@ class DriveBackupDataSourceImpl(
                         }
                     }
 
-                cont.invokeOnCancellation {
-                    launcher.unregister()
-                }
+                    cont.invokeOnCancellation {
+                        launcher.unregister()
+                    }
 
-                launcher.launch(client.signInIntent)
+                    launcher.launch(client.signInIntent)
+                }
             }
         } catch (err: CancellationException) {
             throw IllegalStateException("Google sign-in canceled", err)
