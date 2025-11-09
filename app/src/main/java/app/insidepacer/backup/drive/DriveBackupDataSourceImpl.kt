@@ -4,6 +4,7 @@ import android.accounts.Account
 import android.app.Activity
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
@@ -139,7 +140,11 @@ class DriveBackupDataSourceImpl(
 
     private suspend fun requestGoogleAccount(activity: Activity): GoogleAccount {
         val serverClientId = readServerClientId(activity)
-            ?: throw IllegalStateException(activity.getString(R.string.backup_error_missing_server_client_id))
+        Log.d(TAG, "Using serverClientId: $serverClientId")
+        if (serverClientId == null) {
+            throw IllegalStateException(activity.getString(R.string.backup_error_missing_server_client_id))
+        }
+
         val option = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(serverClientId)
@@ -147,17 +152,20 @@ class DriveBackupDataSourceImpl(
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(option)
             .build()
-        val response = try {
-            credentialManager.getCredential(activity, request)
+
+        try {
+            val response = credentialManager.getCredential(activity, request)
+            val credential = GoogleIdTokenCredential.createFrom(response.credential.data)
+            val email = parseEmailFromIdToken(credential.idToken) ?: credential.displayName
+                ?: throw IllegalStateException("Unable to determine Google account email")
+            val accountId = credential.id
+            val displayName = credential.displayName
+            return GoogleAccount(email = email, accountId = accountId, displayName = displayName)
         } catch (ex: GetCredentialException) {
-            throw IllegalStateException("Google sign-in was cancelled or failed", ex)
+            Log.e(TAG, "Google sign-in failed. Type: ${ex.type}. Message: ${ex.message}", ex)
+            val detailedMessage = "Google sign-in failed. Type: ${ex.type}. Message: ${ex.message}"
+            throw IllegalStateException(detailedMessage, ex)
         }
-        val credential = GoogleIdTokenCredential.createFrom(response.credential.data)
-        val email = parseEmailFromIdToken(credential.idToken) ?: credential.displayName
-            ?: throw IllegalStateException("Unable to determine Google account email")
-        val accountId = credential.id
-        val displayName = credential.displayName
-        return GoogleAccount(email = email, accountId = accountId, displayName = displayName)
     }
 
     private fun parseInstant(dateTime: DateTime?): Instant {
@@ -202,5 +210,6 @@ class DriveBackupDataSourceImpl(
         private const val APP_DATA_FOLDER = "appDataFolder"
         private const val BACKUP_MIME = "application/vnd.insidepacer.backup+json+enc"
         private const val GOOGLE_ACCOUNT_TYPE = "com.google"
+        private val TAG = DriveBackupDataSourceImpl::class.java.simpleName
     }
 }

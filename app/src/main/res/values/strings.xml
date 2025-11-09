@@ -27,6 +27,6 @@
     <string name="backup_last_restore">Last restore: %1$s</string>
     <string name="backup_time_never">Never</string>
     <string name="backup_privacy">Backups are private to your Google account and stored in the app’s hidden Drive space. We encrypt before upload and only use your email for sign-in.</string>
-    <string name="backup_google_server_client_id" translatable="false"></string>
-    <string name="default_web_client_id" translatable="false">200852228051-d7fptrfee382pgk27pkbc6ed7t9oe239.apps.googleusercontent.com</string>
+    <string name="backup_google_server_client_id" translatable="false">200852228051-d7fptrfee382pgk27pkbc6ed7t9oe239.apps.googleusercontent.com</string>
+    <string name="default_web_client_id" translatable="false"></string>
 </resources>
