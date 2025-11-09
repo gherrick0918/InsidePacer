@@ -22,6 +22,7 @@
     <string name="backup_success_backup">Backup completed</string>
     <string name="backup_success_restore">Restored %1$d templates, %2$d programs, %3$d sessions</string>
     <string name="backup_error_generic">Something went wrong. Try again.</string>
+    <string name="backup_error_missing_server_client_id">Google Drive backup isn&#39;t configured. Provide a server client ID via backup_google_server_client_id or default_web_client_id.</string>
     <string name="backup_last_backup">Last backup: %1$s</string>
     <string name="backup_last_restore">Last restore: %1$s</string>
     <string name="backup_time_never">Never</string>
