@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import app.insidepacer.BuildConfig
 import app.insidepacer.backup.BackupFeatureConfig
 import app.insidepacer.backup.ui.BackupSettingsCard
 import app.insidepacer.backup.ui.BackupSettingsViewModel
@@ -30,6 +31,7 @@ fun SettingsScreen() {
   val beepEnabled by repo.beepEnabled.collectAsState(initial = true)
   val hapticsEnabled by repo.hapticsEnabled.collectAsState(initial = false)
   val units by repo.units.collectAsState(initial = Units.MPH)
+  val debugNotifSubtext by repo.debugShowNotifSubtext.collectAsState(initial = BuildConfig.DEBUG)
 
   Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
     if (BackupFeatureConfig.enabled) {
@@ -97,5 +99,16 @@ fun SettingsScreen() {
       "${formatSpeed(sampleSpeedMph, units)} • ${formatDuration(sampleDuration)}"
     }
     Text(previewText, style = MaterialTheme.typography.bodyMedium)
+
+    if (BuildConfig.DEBUG) {
+      HorizontalDivider()
+      Text("Developer", style = MaterialTheme.typography.titleMedium)
+      Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+        Text("Show diagnostic subtext on notification")
+        Switch(checked = debugNotifSubtext, onCheckedChange = { on ->
+          scope.launch { repo.setDebugShowNotifSubtext(on) }
+        })
+      }
+    }
   }
 }

@@ -23,10 +23,9 @@ class SessionBroadcastReceiver : BroadcastReceiver() {
                     return@launch
                 }
                 when (action) {
-                    SessionService.ACTION_PAUSE -> scheduler.pause()
-                    SessionService.ACTION_RESUME -> scheduler.resume()
-                    SessionService.ACTION_STOP -> scheduler.stop()
-                    SessionService.ACTION_SKIP -> scheduler.skip()
+                    NotifActions.ACTION_PAUSE -> scheduler.pause()
+                    NotifActions.ACTION_RESUME -> scheduler.resume()
+                    NotifActions.ACTION_STOP -> scheduler.stop()
                 }
             } finally {
                 pendingResult.finish()

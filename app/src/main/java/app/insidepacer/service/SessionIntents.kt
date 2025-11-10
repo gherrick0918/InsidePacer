@@ -39,17 +39,13 @@ fun Context.startSessionService(
 }
 
 fun Context.pauseSession() {
-    sendBroadcast(Intent(this, SessionBroadcastReceiver::class.java).setAction(SessionService.ACTION_PAUSE))
+    sendBroadcast(Intent(this, SessionBroadcastReceiver::class.java).setAction(NotifActions.ACTION_PAUSE))
 }
 
 fun Context.resumeSession() {
-    sendBroadcast(Intent(this, SessionBroadcastReceiver::class.java).setAction(SessionService.ACTION_RESUME))
+    sendBroadcast(Intent(this, SessionBroadcastReceiver::class.java).setAction(NotifActions.ACTION_RESUME))
 }
 
 fun Context.stopSession() {
-    sendBroadcast(Intent(this, SessionBroadcastReceiver::class.java).setAction(SessionService.ACTION_STOP))
-}
-
-fun Context.skipSessionSegment() {
-    sendBroadcast(Intent(this, SessionBroadcastReceiver::class.java).setAction(SessionService.ACTION_SKIP))
+    sendBroadcast(Intent(this, SessionBroadcastReceiver::class.java).setAction(NotifActions.ACTION_STOP))
 }

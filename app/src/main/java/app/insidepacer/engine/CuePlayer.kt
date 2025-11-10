@@ -9,6 +9,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import app.insidepacer.audio.CueDuckingManager
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.Units
@@ -51,12 +52,8 @@ class CuePlayer(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val speechMutex = Mutex()
     private val speechAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-        .build()
-    private val toneAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
 
     init {
@@ -148,7 +145,7 @@ class CuePlayer(
                 fireHaptic(HAPTIC_TICK_MS)
             }
             delay(150)
-            duckingManager.withFocus(speechAttributes) {
+            duckingManager.speakTts {
                 speakInternal(digit, flush = false)
             }
             val remaining = (delayMs - 150).coerceAtLeast(0)
@@ -156,13 +153,13 @@ class CuePlayer(
                 delay(remaining.toLong())
             }
         }
-        duckingManager.withFocus(speechAttributes) {
+        duckingManager.speakTts {
             speakInternal("Go", flush = false)
         }
     }
 
     suspend fun announceStartingSpeed(speed: Double, units: Units) {
-        duckingManager.withFocus(speechAttributes) {
+        duckingManager.speakTts {
             val formatted = formatSpeed(speed, units)
             speakInternal("First speed is $formatted", flush = true)
         }
@@ -173,7 +170,7 @@ class CuePlayer(
             val message = "Speed change in ${formatDuration(seconds.toLong())}"
             val nextSpeedMessage = nextSpeed?.let { " to ${formatSpeed(it, units)}" } ?: ""
             scope.launch {
-                duckingManager.withFocus(speechAttributes) {
+                duckingManager.speakTts {
                     speakInternal(message + nextSpeedMessage, flush = false)
                 }
             }
@@ -190,7 +187,7 @@ class CuePlayer(
             }
 
             if (voiceOn) {
-                duckingManager.withFocus(speechAttributes) {
+                duckingManager.speakTts {
                     val formatted = formatSpeed(newSpeed, units)
                     speakInternal("Change speed now to $formatted", flush = true)
                 }
@@ -200,7 +197,7 @@ class CuePlayer(
 
     fun finish() {
         scope.launch {
-            duckingManager.withFocus(speechAttributes) {
+            duckingManager.speakTts {
                 speakInternal("Session complete", flush = true)
             }
         }
@@ -221,7 +218,7 @@ class CuePlayer(
         vibrate: Boolean,
     ) {
         speechMutex.withLock {
-            duckingManager.withFocus(toneAttributes) {
+            duckingManager.playBeep {
                 if (vibrate) {
                     fireHaptic(hapticDurationMs)
                 }

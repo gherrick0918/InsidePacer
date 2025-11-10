@@ -1,20 +1,15 @@
 package app.insidepacer.service
 
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.Color
 import android.os.Build
 import android.os.IBinder
 import android.os.Parcelable
-import androidx.core.app.NotificationCompat
-import androidx.core.app.ServiceCompat
-import androidx.media.app.NotificationCompat.MediaStyle
+import app.insidepacer.BuildConfig
 import app.insidepacer.R
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.formatPace
@@ -22,32 +17,29 @@ import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.ProgramProgressRepo
 import app.insidepacer.data.SessionRepo
 import app.insidepacer.data.Units
+import app.insidepacer.data.SettingsRepo
 import app.insidepacer.di.Singleton
 import app.insidepacer.domain.Segment
 import app.insidepacer.domain.SessionLog
 import app.insidepacer.domain.SessionState
 import app.insidepacer.engine.SessionScheduler
-import app.insidepacer.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class SessionService : Service() {
     companion object {
-        const val CHANNEL_ID = "insidepacer_sessions_v3"
         const val NOTIFICATION_ID = 42
 
         const val ACTION_START = "app.insidepacer.action.START"
-        const val ACTION_STOP = "app.insidepacer.action.STOP"
-        const val ACTION_PAUSE = "app.insidepacer.action.PAUSE"
-        const val ACTION_RESUME = "app.insidepacer.action.RESUME"
-        const val ACTION_SKIP = "app.insidepacer.action.SKIP"
         const val ACTION_OBSERVE = "app.insidepacer.action.OBSERVE"
 
         const val EXTRA_SEGMENTS = "segments"
@@ -59,20 +51,23 @@ class SessionService : Service() {
         const val EXTRA_PROGRAM_ID = "program_id"
         const val EXTRA_EPOCH_DAY = "epoch_day"
         const val EXTRA_SESSION_ID = "session_id"
-
-        private const val REQUEST_PAUSE = 1001
-        private const val REQUEST_RESUME = 1002
-        private const val REQUEST_STOP = 1003
-        private const val REQUEST_SKIP = 1004
     }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var scheduler: SessionScheduler? = null
     private lateinit var sessionRepo: SessionRepo
     private lateinit var progressRepo: ProgramProgressRepo
+    private lateinit var settingsRepo: SettingsRepo
     private lateinit var notificationManager: NotificationManager
     @Volatile
     private var isInitialized = false
+    private var debugShowNotifSubtext: Boolean = BuildConfig.DEBUG
+    private var startedAtEpochMs: Long? = null
+    private var elapsedMs: Long = 0L
+    private var tickerJob: Job? = null
+    private var lastState: SessionState? = null
+    private var lastUiBits: SessionNotifications.SessionUiBits? = null
+    private var inForeground = false
 
     private data class StartRequest(val intent: Intent, val startId: Int)
 
@@ -87,7 +82,27 @@ class SessionService : Service() {
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        ensureChannel()
+        settingsRepo = SettingsRepo(applicationContext)
+        SessionNotifications.ensureChannel(this)
+        if (BuildConfig.DEBUG) {
+            scope.launch {
+                settingsRepo.debugShowNotifSubtext.collectLatest { enabled ->
+                    debugShowNotifSubtext = enabled
+                    lastState?.let { state ->
+                        val uiBits = buildSessionUiBits(state, startedAtEpochMs)
+                        lastUiBits = uiBits
+                        if (uiBits != null && inForeground) {
+                            notificationManager.notify(
+                                NOTIFICATION_ID,
+                                SessionNotifications.build(this@SessionService, uiBits),
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            debugShowNotifSubtext = false
+        }
         scope.launch {
             scheduler = Singleton.getSessionScheduler(applicationContext)
             sessionRepo = SessionRepo(applicationContext)
@@ -95,7 +110,9 @@ class SessionService : Service() {
             isInitialized = true
             drainPendingStartRequests()
             scheduler?.state
-                ?.collectLatest { updateNotification(it) }
+                ?.collectLatest { state ->
+                    updateNotification(state)
+                }
             scheduler?.state?.value?.takeIf { it.active }?.let { updateNotification(it) }
         }
     }
@@ -104,10 +121,9 @@ class SessionService : Service() {
         val scheduler = scheduler
         when (intent?.action) {
             ACTION_START -> handleStart(intent, startId)
-            ACTION_STOP -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.stop()
-            ACTION_SKIP -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.skip()
-            ACTION_PAUSE -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.pause()
-            ACTION_RESUME -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.resume()
+            NotifActions.ACTION_STOP -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.stop()
+            NotifActions.ACTION_PAUSE -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.pause()
+            NotifActions.ACTION_RESUME -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.resume()
             ACTION_OBSERVE, null -> {
                 // no-op: observation happens via state collector
             }
@@ -130,24 +146,26 @@ class SessionService : Service() {
         if (currentState?.active == true) {
             hasPendingStartCommand = false
             hasObservedActiveSession = true
-            ServiceCompat.startForeground(
-                this,
-                NOTIFICATION_ID,
-                buildNotification(currentState),
-                foregroundType()
-            )
+            startedAtEpochMs = computeStartedAt(currentState)
+            elapsedMs = currentState.elapsedSec.coerceAtLeast(0) * 1000L
+            val uiBits = buildSessionUiBits(currentState, startedAtEpochMs)
+            if (uiBits != null) {
+                lastUiBits = uiBits
+                startForegroundNotification(uiBits)
+            }
+            ensureTicker()
             return
         }
 
         hasPendingStartCommand = true
         hasObservedActiveSession = false
-
-        ServiceCompat.startForeground(
-            this,
-            NOTIFICATION_ID,
-            buildStartingNotification(),
-            foregroundType()
-        )
+        if (startedAtEpochMs == null) {
+            startedAtEpochMs = System.currentTimeMillis()
+        }
+        elapsedMs = 0L
+        val startingUiBits = buildStartingUiBits()
+        lastUiBits = startingUiBits
+        startForegroundNotification(startingUiBits)
 
         if (!isInitialized || currentScheduler == null) {
             synchronized(pendingStartRequests) {
@@ -210,10 +228,6 @@ class SessionService : Service() {
         }
     }
 
-    private fun handleStop() {
-        scheduler?.stop()
-    }
-
     private suspend fun logSession(
         sessionId: String,
         programId: String?,
@@ -238,184 +252,201 @@ class SessionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        tickerJob?.cancel()
+        tickerJob = null
         scope.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun ensureChannel() {
-        if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "InsidePacer sessions",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Active InsidePacer session"
-                setSound(null, null)
-                enableVibration(false)
-                lightColor = Color.BLUE
-                setShowBadge(false)
-            }
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun contentIntent(): PendingIntent = PendingIntent.getActivity(
-        this,
-        0,
-        Intent(this, MainActivity::class.java),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-
-    private fun actionIntent(action: String, sessionId: String?, requestCode: Int): PendingIntent {
-        val intent = Intent(this, SessionBroadcastReceiver::class.java).setAction(action)
-        if (sessionId != null) {
-            intent.putExtra(EXTRA_SESSION_ID, sessionId)
-        }
-        return PendingIntent.getBroadcast(
-            this,
-            requestCode,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    private fun buildStartingUiBits(): SessionNotifications.SessionUiBits {
+        return SessionNotifications.SessionUiBits(
+            startedAtEpochMs = startedAtEpochMs,
+            elapsedMs = elapsedMs,
+            title = getString(R.string.app_name),
+            subtitle = getString(R.string.session_starting_up),
+            pauseOrResumeAction = null,
+            stopAction = NotifActions.stop(this, null),
+            debugSegmentId = "-",
+            showDebugSubtext = false,
+            isActive = true,
+            isPaused = false,
         )
     }
 
-    private fun buildStartingNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(getString(R.string.app_name))
-            .setContentText(getString(R.string.session_starting_up))
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setOngoing(true)
-            .build()
+    private fun startForegroundNotification(uiBits: SessionNotifications.SessionUiBits) {
+        val notification = SessionNotifications.build(this, uiBits)
+        startForegroundCompat(notification)
+        inForeground = true
     }
 
-    private fun buildNotification(state: SessionState): Notification {
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentIntent(contentIntent())
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setOngoing(state.active)
-            .setAutoCancel(false)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
+    private fun startForegroundCompat(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
 
+    private fun updateNotification(state: SessionState) {
+        lastState = state
+        if (state.active) {
+            hasObservedActiveSession = true
+            val startedAt = computeStartedAt(state)
+            elapsedMs = state.elapsedSec.coerceAtLeast(0) * 1000L
+            val uiBits = buildSessionUiBits(state, startedAt)
+            lastUiBits = uiBits
+            if (uiBits != null) {
+                if (!inForeground) {
+                    startForegroundNotification(uiBits)
+                } else {
+                    notificationManager.notify(
+                        NOTIFICATION_ID,
+                        SessionNotifications.build(this, uiBits),
+                    )
+                }
+            }
+            ensureTicker()
+        } else {
+            tickerJob?.cancel()
+            tickerJob = null
+            lastUiBits = null
+            startedAtEpochMs = null
+            elapsedMs = state.elapsedSec.coerceAtLeast(0) * 1000L
+            if (hasPendingStartCommand) {
+                val uiBits = buildStartingUiBits()
+                lastUiBits = uiBits
+                if (!inForeground) {
+                    startForegroundNotification(uiBits)
+                } else {
+                    notificationManager.notify(
+                        NOTIFICATION_ID,
+                        SessionNotifications.build(this, uiBits),
+                    )
+                }
+                return
+            }
+
+            if (hasObservedActiveSession) {
+                hasObservedActiveSession = false
+                if (inForeground) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    inForeground = false
+                }
+                notificationManager.cancel(NOTIFICATION_ID)
+                stopSelf()
+            }
+        }
+    }
+
+    private fun ensureTicker() {
+        if (tickerJob?.isActive == true) return
+        if (lastState?.active != true) return
+        tickerJob = scope.launch {
+            while (true) {
+                delay(1000)
+                val state = lastState ?: break
+                if (!state.active) break
+                if (!state.isPaused) {
+                    elapsedMs += 1000
+                }
+                val uiBits = buildSessionUiBits(state, startedAtEpochMs)
+                lastUiBits = uiBits
+                if (uiBits != null && inForeground) {
+                    notificationManager.notify(
+                        NOTIFICATION_ID,
+                        SessionNotifications.build(this@SessionService, uiBits),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun computeStartedAt(state: SessionState): Long? {
+        if (!state.active) {
+            startedAtEpochMs = null
+            return null
+        }
+        val persisted = state.sessionStartTime.takeIf { it > 0L }
+        val resolved = when {
+            persisted != null -> persisted
+            startedAtEpochMs != null -> startedAtEpochMs
+            else -> System.currentTimeMillis() - state.elapsedSec.coerceAtLeast(0) * 1000L
+        }
+        startedAtEpochMs = resolved
+        return resolved
+    }
+
+    private fun buildSessionUiBits(
+        state: SessionState,
+        startedAt: Long?,
+    ): SessionNotifications.SessionUiBits? {
+        val title = buildTitle(state)
+        val subtitle = buildSubtitle(state)
+        val pauseResumeAction = when {
+            !state.active -> null
+            state.isPaused -> NotifActions.resume(this, state.sessionId)
+            else -> NotifActions.pause(this, state.sessionId)
+        }
+        val stopAction = if (state.active) NotifActions.stop(this, state.sessionId) else null
+        val debugId = buildDebugSegmentId(state)
+        val showDebug = debugShowNotifSubtext && state.active
+        return SessionNotifications.SessionUiBits(
+            startedAtEpochMs = startedAt,
+            elapsedMs = elapsedMs.coerceAtLeast(0L),
+            title = title,
+            subtitle = subtitle,
+            pauseOrResumeAction = pauseResumeAction,
+            stopAction = stopAction,
+            debugSegmentId = debugId,
+            showDebugSubtext = showDebug,
+            isActive = state.active,
+            isPaused = state.isPaused,
+        )
+    }
+
+    private fun buildTitle(state: SessionState): String {
         val segmentLabel = state.currentSegmentLabel
         val baseTitle = if (state.active && !segmentLabel.isNullOrBlank()) {
             segmentLabel
         } else {
             getString(R.string.app_name)
         }
-        val title = if (state.active && state.isPaused) {
+        return if (state.active && state.isPaused) {
             "$baseTitle (${getString(R.string.session_status_paused)})"
         } else {
             baseTitle
         }
-        builder.setContentTitle(title)
-
-        val (contentText, subText) = buildContentText(state)
-        builder.setContentText(contentText)
-        subText?.let { builder.setSubText(it) }
-
-        builder.applyTimeInfo(state)
-        builder.applyProgress(state)
-
-        val actions = mutableListOf<NotificationCompat.Action>()
-        val sessionId = state.sessionId
-
-        if (state.active) {
-            val pauseResumeAction = if (!state.isPaused) {
-                NotificationCompat.Action.Builder(
-                    android.R.drawable.ic_media_pause,
-                    getString(R.string.session_action_pause),
-                    actionIntent(ACTION_PAUSE, sessionId, REQUEST_PAUSE)
-                ).build()
-            } else {
-                NotificationCompat.Action.Builder(
-                    android.R.drawable.ic_media_play,
-                    getString(R.string.session_action_resume),
-                    actionIntent(ACTION_RESUME, sessionId, REQUEST_RESUME)
-                ).build()
-            }
-            actions += pauseResumeAction
-
-            actions += NotificationCompat.Action.Builder(
-                android.R.drawable.ic_media_next,
-                getString(R.string.session_action_skip),
-                actionIntent(ACTION_SKIP, sessionId, REQUEST_SKIP)
-            ).build()
-            actions += NotificationCompat.Action.Builder(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.session_action_stop),
-                actionIntent(ACTION_STOP, sessionId, REQUEST_STOP)
-            ).build()
-        } else {
-            actions += NotificationCompat.Action.Builder(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.session_action_stop),
-                actionIntent(ACTION_STOP, sessionId, REQUEST_STOP)
-            ).build()
-        }
-
-        actions.forEach { builder.addAction(it) }
-
-        val compactIndices = when {
-            actions.size >= 3 -> intArrayOf(0, 1, 2)
-            actions.size == 2 -> intArrayOf(0, 1)
-            else -> intArrayOf(0)
-        }
-        builder.setStyle(MediaStyle().setShowActionsInCompactView(*compactIndices))
-
-        return builder.build()
     }
 
-    private fun updateNotification(state: SessionState) {
-        if (state.active) {
-            hasObservedActiveSession = true
-            val notification = buildNotification(state)
-            ServiceCompat.startForeground(
-                this,
-                NOTIFICATION_ID,
-                notification,
-                foregroundType()
-            )
-        } else {
-            if (hasPendingStartCommand) {
-                notificationManager.notify(NOTIFICATION_ID, buildStartingNotification())
-                return
-            }
-
-            if (hasObservedActiveSession) {
-                hasObservedActiveSession = false
-                notificationManager.cancel(NOTIFICATION_ID)
-                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-                stopSelf()
-            }
-        }
-    }
-
-    private fun foregroundType(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
-
-    private fun buildContentText(state: SessionState): Pair<String, String?> {
+    private fun buildSubtitle(state: SessionState): String {
         if (!state.active) {
-            val readyText = getString(R.string.session_ready)
-            return readyText to getString(R.string.session_status_ready)
+            return getString(R.string.session_ready)
         }
-
         val progressSummary = buildProgressSummary(state)
         val nextSummary = buildNextChangeSummary(state)
-        val content = when {
-            state.isPaused -> listOfNotNull(progressSummary, nextSummary).joinToString(" • ")
-            else -> progressSummary
+        val timeline = if (state.isPaused) {
+            listOfNotNull(progressSummary, nextSummary).joinToString(" • ")
+        } else {
+            progressSummary
         }
         val status = buildSpeedSummary(state)
-        return content to status
+        return listOfNotNull(timeline, status.takeIf { it.isNotBlank() })
+            .filter { it.isNotBlank() }
+            .joinToString(" • ")
+    }
+
+    private fun buildDebugSegmentId(state: SessionState): String {
+        if (!state.active || state.segments.isEmpty()) return "-"
+        val total = state.segments.size
+        val current = state.currentSegment.coerceAtLeast(0)
+        val safeIndex = current.coerceIn(0, total - 1)
+        return "${safeIndex + 1}/$total"
     }
 
     private fun buildProgressSummary(state: SessionState): String {
@@ -444,29 +475,6 @@ class SessionService : Service() {
         val formattedSpeed = formatSpeed(upcomingSpeed, state.units)
         val formattedTime = formatDuration(secondsUntil)
         return getString(R.string.session_notification_next_speed, formattedSpeed, formattedTime)
-    }
-
-    private fun NotificationCompat.Builder.applyTimeInfo(state: SessionState): NotificationCompat.Builder {
-        if (state.active && state.sessionStartTime > 0L) {
-            setShowWhen(true)
-            setWhen(state.sessionStartTime)
-            setUsesChronometer(true)
-        } else {
-            setShowWhen(false)
-            setUsesChronometer(false)
-        }
-        return this
-    }
-
-    private fun NotificationCompat.Builder.applyProgress(state: SessionState): NotificationCompat.Builder {
-        val total = state.totalDurationSec.coerceAtLeast(0)
-        val elapsed = state.elapsedSec.coerceAtLeast(0)
-        if (state.active && total > 0) {
-            setProgress(total, elapsed.coerceAtMost(total), false)
-        } else {
-            setProgress(0, 0, false)
-        }
-        return this
     }
 
     private fun buildSpeedSummary(state: SessionState): String {
