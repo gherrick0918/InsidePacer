@@ -3,7 +3,7 @@ package app.insidepacer.di
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
-import app.insidepacer.engine.CueDuckingManager
+import app.insidepacer.audio.CueDuckingManager
 import app.insidepacer.engine.CuePlayer
 import app.insidepacer.engine.SessionScheduler
 import kotlinx.coroutines.android.asCoroutineDispatcher

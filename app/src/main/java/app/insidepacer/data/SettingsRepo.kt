@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.insidepacer.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -29,12 +30,16 @@ class SettingsRepo(private val context: Context) {
     private val KEY_PRECHANGE_SEC   = intPreferencesKey("prechange_seconds")
     private val KEY_BEEP_ENABLED    = booleanPreferencesKey("beep_enabled")
     private val KEY_HAPTIC_ENABLED  = booleanPreferencesKey("haptic_enabled")
+    private val KEY_DEBUG_NOTIF_SUBTEXT = booleanPreferencesKey("debug_notif_subtext")
 
     // Defaults
     val voiceEnabled = context.settingsDataStore.data.map { it[KEY_VOICE_ENABLED] ?: true }
     val preChangeSeconds = context.settingsDataStore.data.map { it[KEY_PRECHANGE_SEC] ?: 10 }
     val beepEnabled = context.settingsDataStore.data.map { it[KEY_BEEP_ENABLED] ?: true }
     val hapticsEnabled = context.settingsDataStore.data.map { it[KEY_HAPTIC_ENABLED] ?: false }
+    val debugShowNotifSubtext = context.settingsDataStore.data.map {
+        it[KEY_DEBUG_NOTIF_SUBTEXT] ?: BuildConfig.DEBUG
+    }
 
     suspend fun setVoiceEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { it[KEY_VOICE_ENABLED] = enabled }
@@ -50,6 +55,10 @@ class SettingsRepo(private val context: Context) {
 
     suspend fun setHapticsEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { it[KEY_HAPTIC_ENABLED] = enabled }
+    }
+
+    suspend fun setDebugShowNotifSubtext(enabled: Boolean) {
+        context.settingsDataStore.edit { it[KEY_DEBUG_NOTIF_SUBTEXT] = enabled }
     }
 
 

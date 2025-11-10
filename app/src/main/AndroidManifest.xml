@@ -26,7 +26,7 @@
         <service
             android:name=".service.SessionService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback|dataSync" />
+            android:foregroundServiceType="mediaPlayback" />
 
         <receiver
             android:name=".service.SessionBroadcastReceiver"
@@ -35,7 +35,6 @@
                 <action android:name="app.insidepacer.action.PAUSE" />
                 <action android:name="app.insidepacer.action.RESUME" />
                 <action android:name="app.insidepacer.action.STOP" />
-                <action android:name="app.insidepacer.action.SKIP" />
             </intent-filter>
         </receiver>
 
