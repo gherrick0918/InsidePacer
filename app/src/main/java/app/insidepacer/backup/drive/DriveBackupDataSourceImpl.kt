@@ -62,13 +62,25 @@ class DriveBackupDataSourceImpl(
     private val mutex = Mutex()
 
     override suspend fun ensureSignedIn(): GoogleAccount = mutex.withLock {
-        accountRef.get()?.let { existing ->
-            ensureDrive(existing)
-            return@withLock existing
+        val lastSignedInAccount = withContext(Dispatchers.Main) {
+            GoogleSignIn.getLastSignedInAccount(appContext)
+        }
+        if (lastSignedInAccount != null && GoogleSignIn.hasPermissions(lastSignedInAccount, Scope(DriveScopes.DRIVE_APPDATA))) {
+            Log.d(TAG, "Found existing signed-in account with Drive permission.")
+            val googleAccount = GoogleAccount(
+                email = lastSignedInAccount.email!!,
+                accountId = lastSignedInAccount.id!!,
+                displayName = lastSignedInAccount.displayName
+            )
+            accountRef.set(googleAccount)
+            ensureDrive(googleAccount)
+            return@withLock googleAccount
         }
 
-        val activity = ActivityTracker.currentActivity()
-            ?: throw IllegalStateException("Sign-in requires an active InsidePacer screen")
+        Log.i(TAG, "No existing account with Drive permission. Starting sign-in flow.")
+        val activity = withContext(Dispatchers.Main) {
+            ActivityTracker.currentActivity()
+        } ?: throw IllegalStateException("Sign-in requires an active InsidePacer screen")
 
         val account = requestGoogleAccount(activity)
         ensureDrive(account)
@@ -133,6 +145,10 @@ class DriveBackupDataSourceImpl(
             driveRef.getAndSet(null)
             accountRef.getAndSet(null)
         }
+
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
+        GoogleSignIn.getClient(appContext, gso).signOut()
+
         runCatching {
             credentialManager.clearCredentialState(ClearCredentialStateRequest())
         }
@@ -155,24 +171,15 @@ class DriveBackupDataSourceImpl(
     }
 
     private suspend fun requestGoogleAccount(activity: Activity): GoogleAccount {
-        val serverClientId = readServerClientId(activity)
-        Log.d(TAG, "Using serverClientId: $serverClientId")
-
-        if (serverClientId != null) {
-            val credentialAccount = runCatching {
-                requestWithCredentialManager(activity, serverClientId)
-            }.onFailure { err ->
-                Log.w(TAG, "CredentialManager sign-in failed: ${err.message}", err)
-            }.getOrNull()
-
-            if (credentialAccount != null) {
-                return credentialAccount
-            }
-        } else {
-            Log.w(TAG, "Server client ID missing. Falling back to Google account picker")
-        }
-
-        Log.i(TAG, "Falling back to legacy Google account picker")
+        // The CredentialManager flow (requestWithCredentialManager) is problematic because
+        // it can successfully return a Google ID token without the user having granted the
+        // DRIVE_APPDATA scope. This leads to an authorization failure (NEED_REMOTE_CONSENT)
+        // when the app then tries to access Google Drive.
+        //
+        // To fix this, we bypass the CredentialManager for now and go straight to the
+        // traditional Google Sign-In account picker, which correctly requests the
+        // necessary permissions upfront.
+        Log.i(TAG, "Starting Google Sign-In to request Drive permission.")
         return requestWithAccountPicker(activity)
     }
 
@@ -210,74 +217,78 @@ class DriveBackupDataSourceImpl(
 
         return try {
             withContext(Dispatchers.Main) {
-                val credential = GoogleAccountCredential.usingOAuth2(
-                    activity,
-                    setOf(DriveScopes.DRIVE_APPDATA)
-                )
+                val serverClientId = readServerClientId(componentActivity)
+                val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                    .requestEmail()
+                    .requestScopes(Scope(DriveScopes.DRIVE_APPDATA))
+
+                if (serverClientId != null) {
+                    gsoBuilder.requestIdToken(serverClientId)
+                }
+                val gso = gsoBuilder.build()
+                val googleSignInClient = GoogleSignIn.getClient(componentActivity, gso)
 
                 suspendCancellableCoroutine { cont ->
                     lateinit var launcher: ActivityResultLauncher<Intent>
                     launcher = componentActivity.activityResultRegistry.register(
-                        "accountPicker:${UUID.randomUUID()}",
+                        "googleSignIn:${UUID.randomUUID()}",
                         ActivityResultContracts.StartActivityForResult()
                     ) { result ->
                         if (!cont.isActive) {
-                            launcher.unregister()
+                            runCatching { launcher.unregister() }
                             return@register
                         }
 
                         try {
                             if (result.resultCode != Activity.RESULT_OK) {
                                 if (result.resultCode == Activity.RESULT_CANCELED) {
-                                    Log.i(TAG, "Google account picker canceled")
-                                    cont.cancel(CancellationException("Google account selection canceled"))
+                                    Log.i(TAG, "Google Sign-In canceled")
+                                    cont.cancel(CancellationException("Google Sign-In canceled"))
                                 } else {
                                     cont.resumeWithException(
-                                        IllegalStateException("Google account selection failed with resultCode ${result.resultCode}")
+                                        IllegalStateException("Google Sign-In failed with resultCode ${result.resultCode}")
                                     )
                                 }
                                 return@register
                             }
 
-                            val data = result.data
-                                ?: throw IllegalStateException("Google account selection returned no data")
+                            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                            val account = task.getResult(ApiException::class.java)
 
-                            val email = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
-                                ?: data.getStringExtra("authAccount")
+                            val grantedScopes = account.grantedScopes.joinToString(" ") { it.scopeUri }
+                            Log.d(TAG, "Account picker success. Granted scopes: $grantedScopes")
+
+                            val email = account.email
                                 ?: throw IllegalStateException("Unable to determine Google account email")
-
-                            val type = data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE)
-                            if (type != null && type != GOOGLE_ACCOUNT_TYPE) {
-                                throw IllegalStateException("Selected account is not a Google account: $type")
-                            }
-
-                            credential.selectedAccountName = email
-                            Log.d(TAG, "Google account picker selected: $email")
+                            val accountId = account.id
+                                ?: throw IllegalStateException("Unable to determine Google account id")
 
                             cont.resume(
                                 GoogleAccount(
                                     email = email,
-                                    accountId = email,
-                                    displayName = null
+                                    accountId = accountId,
+                                    displayName = account.displayName
                                 )
                             )
+                        } catch (e: ApiException) {
+                            Log.e(TAG, "Google sign-in failed: ${googleStatusString(e.statusCode)}", e)
+                            cont.resumeWithException(e)
                         } catch (err: Exception) {
                             cont.resumeWithException(err)
                         } finally {
-                            launcher.unregister()
+                            runCatching { launcher.unregister() }
                         }
                     }
 
                     cont.invokeOnCancellation {
-                        launcher.unregister()
+                        runCatching { launcher.unregister() }
                     }
 
-                    val intent = credential.newChooseAccountIntent()
-                    launcher.launch(intent)
+                    launcher.launch(googleSignInClient.signInIntent)
                 }
             }
         } catch (err: CancellationException) {
-            throw IllegalStateException(err.message ?: "Google account selection canceled", err)
+            throw IllegalStateException("Google account selection canceled", err)
         } catch (err: Exception) {
             throw IllegalStateException("Google account selection failed: ${err.message}", err)
         }
