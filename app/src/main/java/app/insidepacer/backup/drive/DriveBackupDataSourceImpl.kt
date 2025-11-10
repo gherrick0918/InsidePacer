@@ -17,7 +17,13 @@ import androidx.credentials.exceptions.GetCredentialException
 import app.insidepacer.R
 import app.insidepacer.backup.DriveBackupMeta
 import app.insidepacer.backup.ui.ActivityTracker
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -283,6 +289,16 @@ class DriveBackupDataSourceImpl(
         } catch (err: Exception) {
             throw IllegalStateException("Google account selection failed: ${err.message}", err)
         }
+
+        val email = account.email
+            ?: throw IllegalStateException("Unable to determine Google account email")
+        val accountId = account.id
+            ?: throw IllegalStateException("Unable to determine Google account id")
+        return GoogleAccount(
+            email = email,
+            accountId = accountId,
+            displayName = account.displayName
+        )
     }
 
     private fun parseInstant(dateTime: DateTime?): Instant {
@@ -321,6 +337,11 @@ class DriveBackupDataSourceImpl(
         }
 
         return null
+    }
+
+    private fun googleStatusString(statusCode: Int): String {
+        val name = GoogleSignInStatusCodes.getStatusCodeString(statusCode)
+        return "$name ($statusCode)"
     }
 
     companion object {
