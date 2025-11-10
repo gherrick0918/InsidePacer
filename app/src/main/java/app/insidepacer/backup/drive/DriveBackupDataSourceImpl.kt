@@ -8,7 +8,6 @@ import android.content.Intent
 import android.util.Base64
 import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
@@ -199,6 +198,86 @@ class DriveBackupDataSourceImpl(
         } catch (ex: GetCredentialException) {
             Log.e(TAG, "Google sign-in failed. Type: ${ex.type}. Message: ${ex.message}", ex)
             throw ex
+        }
+    }
+
+    private suspend fun requestWithAccountPicker(
+        activity: Activity
+    ): GoogleAccount {
+        val componentActivity = activity as? ComponentActivity
+            ?: throw IllegalStateException("Google sign-in requires a ComponentActivity host")
+
+        return try {
+            withContext(Dispatchers.Main) {
+                val credential = GoogleAccountCredential.usingOAuth2(
+                    activity,
+                    setOf(DriveScopes.DRIVE_APPDATA)
+                )
+
+                suspendCancellableCoroutine { cont ->
+                    val launcher = componentActivity.activityResultRegistry.register(
+                        "accountPicker:${UUID.randomUUID()}",
+                        ActivityResultContracts.StartActivityForResult()
+                    ) { result ->
+                        if (!cont.isActive) {
+                            launcher.unregister()
+                            return@register
+                        }
+
+                        try {
+                            if (result.resultCode != Activity.RESULT_OK) {
+                                if (result.resultCode == Activity.RESULT_CANCELED) {
+                                    Log.i(TAG, "Google account picker canceled")
+                                    cont.cancel(CancellationException("Google account selection canceled"))
+                                } else {
+                                    cont.resumeWithException(
+                                        IllegalStateException("Google account selection failed with resultCode ${result.resultCode}")
+                                    )
+                                }
+                                return@register
+                            }
+
+                            val data = result.data
+                                ?: throw IllegalStateException("Google account selection returned no data")
+
+                            val email = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+                                ?: data.getStringExtra("authAccount")
+                                ?: throw IllegalStateException("Unable to determine Google account email")
+
+                            val type = data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE)
+                            if (type != null && type != GOOGLE_ACCOUNT_TYPE) {
+                                throw IllegalStateException("Selected account is not a Google account: $type")
+                            }
+
+                            credential.selectedAccountName = email
+                            Log.d(TAG, "Google account picker selected: $email")
+
+                            cont.resume(
+                                GoogleAccount(
+                                    email = email,
+                                    accountId = email,
+                                    displayName = null
+                                )
+                            )
+                        } catch (err: Exception) {
+                            cont.resumeWithException(err)
+                        } finally {
+                            launcher.unregister()
+                        }
+                    }
+
+                    cont.invokeOnCancellation {
+                        launcher.unregister()
+                    }
+
+                    val intent = credential.newChooseAccountIntent()
+                    launcher.launch(intent)
+                }
+            }
+        } catch (err: CancellationException) {
+            throw IllegalStateException(err.message ?: "Google account selection canceled", err)
+        } catch (err: Exception) {
+            throw IllegalStateException("Google account selection failed: ${err.message}", err)
         }
     }
 
