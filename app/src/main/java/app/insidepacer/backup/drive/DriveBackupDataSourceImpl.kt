@@ -218,6 +218,95 @@ class DriveBackupDataSourceImpl(
                 suspendCancellableCoroutine { cont ->
                     val launcherKey = "accountPicker:${UUID.randomUUID()}"
                     lateinit var launcher: ActivityResultLauncher<Intent>
+
+                    fun unregisterLauncher() {
+                        if (::launcher.isInitialized) {
+                            runCatching { launcher.unregister() }
+                        }
+                    }
+
+                    launcher = componentActivity.activityResultRegistry.register(
+                        launcherKey,
+                        ActivityResultContracts.StartActivityForResult()
+                    ) { result ->
+                        if (!cont.isActive) {
+                            unregisterLauncher()
+                            return@register
+                        }
+
+                        try {
+                            if (result.resultCode != Activity.RESULT_OK) {
+                                if (result.resultCode == Activity.RESULT_CANCELED) {
+                                    Log.i(TAG, "Google account picker canceled")
+                                    cont.cancel(CancellationException("Google account selection canceled"))
+                                } else {
+                                    cont.resumeWithException(
+                                        IllegalStateException("Google account selection failed with resultCode ${result.resultCode}")
+                                    )
+                                }
+                                return@register
+                            }
+
+                            val data = result.data
+                                ?: throw IllegalStateException("Google account selection returned no data")
+
+                            val email = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+                                ?: data.getStringExtra("authAccount")
+                                ?: throw IllegalStateException("Unable to determine Google account email")
+
+                            val type = data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE)
+                            if (type != null && type != GOOGLE_ACCOUNT_TYPE) {
+                                throw IllegalStateException("Selected account is not a Google account: $type")
+                            }
+
+                            credential.selectedAccountName = email
+                            Log.d(TAG, "Google account picker selected: $email")
+
+                            cont.resume(
+                                GoogleAccount(
+                                    email = email,
+                                    accountId = email,
+                                    displayName = null
+                                )
+                            )
+                        } catch (err: Exception) {
+                            cont.resumeWithException(err)
+                        } finally {
+                            unregisterLauncher()
+                        }
+                    }
+
+                    cont.invokeOnCancellation {
+                        unregisterLauncher()
+                    }
+
+                    val intent = credential.newChooseAccountIntent()
+                    launcher.launch(intent)
+                }
+            }
+        } catch (err: CancellationException) {
+            throw IllegalStateException(err.message ?: "Google account selection canceled", err)
+        } catch (err: Exception) {
+            throw IllegalStateException("Google account selection failed: ${err.message}", err)
+        }
+    }
+
+    private suspend fun requestWithAccountPicker(
+        activity: Activity,
+    ): GoogleAccount {
+        val componentActivity = activity as? ComponentActivity
+            ?: throw IllegalStateException("Google sign-in requires a ComponentActivity host")
+
+        return try {
+            withContext(Dispatchers.Main) {
+                val credential = GoogleAccountCredential.usingOAuth2(
+                    activity,
+                    setOf(DriveScopes.DRIVE_APPDATA)
+                )
+
+                suspendCancellableCoroutine { cont ->
+                    val launcherKey = "accountPicker:${UUID.randomUUID()}"
+                    lateinit var launcher: ActivityResultLauncher<Intent>
                     launcher = componentActivity.activityResultRegistry.register(
                         launcherKey,
                         ActivityResultContracts.StartActivityForResult()
