@@ -1,0 +1,116 @@
+package com.insidepacer.health
+
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.ComponentActivity
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.records.ExerciseSessionRecord
+import java.time.Instant
+import java.time.ZoneId
+
+class HealthConnectRepoImpl : HealthConnectRepo {
+    override suspend fun availability(context: Context): HcAvailability {
+        val status = HealthConnectClient.getSdkStatus(
+            context,
+            HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+        )
+        return mapSdkStatusToAvailability(status)
+    }
+
+    override suspend fun ensureInstalled(context: Context): Boolean {
+        val status = HealthConnectClient.getSdkStatus(
+            context,
+            HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+        )
+        return when (mapSdkStatusToAvailability(status)) {
+            HcAvailability.SUPPORTED_INSTALLED -> true
+            HcAvailability.SUPPORTED_NOT_INSTALLED -> {
+                when (status) {
+                    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
+                        openAppSettings(context)
+                    }
+                    else -> {
+                        openPlayStore(context)
+                    }
+                }
+                false
+            }
+            HcAvailability.NOT_SUPPORTED -> false
+        }
+    }
+
+    override suspend fun hasWritePermission(context: Context): Boolean {
+        val client = HealthConnectClient.getOrCreate(context)
+        return HcPermissionManager(client).hasWritePermission()
+    }
+
+    override suspend fun requestWritePermission(activity: ComponentActivity): Boolean {
+        val client = HealthConnectClient.getOrCreate(activity)
+        return HcPermissionManager(client).requestWritePermission(activity)
+    }
+
+    override suspend fun writeWalkingSession(
+        context: Context,
+        startTime: Instant,
+        endTime: Instant,
+        notes: String?
+    ): Result<Unit> {
+        val availability = availability(context)
+        if (availability != HcAvailability.SUPPORTED_INSTALLED) {
+            return Result.failure(IllegalStateException("Health Connect not installed"))
+        }
+        val client = HealthConnectClient.getOrCreate(context)
+        val permissionManager = HcPermissionManager(client)
+        val hasPermission = permissionManager.hasWritePermission()
+        if (!hasPermission) {
+            return Result.failure(IllegalStateException("Missing Health Connect permission"))
+        }
+        val zone = ZoneId.systemDefault()
+        val startOffset = zone.rules.getOffset(startTime)
+        val endOffset = zone.rules.getOffset(endTime)
+        val record = ExerciseSessionRecord(
+            exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+            startTime = startTime,
+            startZoneOffset = startOffset,
+            endTime = endTime,
+            endZoneOffset = endOffset,
+            notes = notes,
+        )
+        return runCatching { client.insertRecords(listOf(record)) }
+    }
+
+    private fun openPlayStore(context: Context) {
+        val packageName = HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+        val playIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(playIntent)
+        } catch (notFound: ActivityNotFoundException) {
+            val webIntent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://play.google.com/store/apps/details?id=$packageName")
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(webIntent) }
+        }
+    }
+
+    private fun openAppSettings(context: Context) {
+        val packageName = HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
+}
+
+internal fun mapSdkStatusToAvailability(status: Int): HcAvailability = when (status) {
+    HealthConnectClient.SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_DISABLED,
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
+    else -> HcAvailability.NOT_SUPPORTED
+}

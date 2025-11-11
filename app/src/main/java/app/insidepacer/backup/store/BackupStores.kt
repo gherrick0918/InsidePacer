@@ -41,7 +41,8 @@ data class SettingsSnapshot(
     val preChangeSeconds: Int,
     val units: Units,
     val speeds: List<Double>,
-    val biometrics: Biometrics?
+    val biometrics: Biometrics?,
+    val healthConnectEnabled: Boolean,
 )
 
 class RealTemplateStore(private val repo: TemplateRepo) : TemplateStore {
@@ -77,6 +78,7 @@ class RealSettingsStore(private val context: Context, private val repo: Settings
         val units = repo.units.first()
         val speeds = repo.speeds.first()
         val biom = repo.biometrics.first()
+        val healthConnectEnabled = repo.healthConnectEnabled.first()
         return SettingsSnapshot(
             voiceEnabled = voice,
             beepEnabled = beep,
@@ -84,7 +86,8 @@ class RealSettingsStore(private val context: Context, private val repo: Settings
             preChangeSeconds = preChange,
             units = units,
             speeds = speeds,
-            biometrics = biom
+            biometrics = biom,
+            healthConnectEnabled = healthConnectEnabled,
         )
     }
 
@@ -96,6 +99,7 @@ class RealSettingsStore(private val context: Context, private val repo: Settings
         repo.setUnits(snapshot.units)
         repo.setSpeeds(snapshot.speeds)
         repo.setBiometrics(snapshot.biometrics)
+        repo.setHealthConnectEnabled(snapshot.healthConnectEnabled)
     }
 }
 

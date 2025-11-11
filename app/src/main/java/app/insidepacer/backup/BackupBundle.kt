@@ -113,7 +113,8 @@ data class SettingsDto(
     val preChangeSeconds: Int,
     val units: Units,
     val speeds: List<Double> = emptyList(),
-    val biometrics: BiometricsDto? = null
+    val biometrics: BiometricsDto? = null,
+    val healthConnectEnabled: Boolean = false,
 ) {
     fun toSnapshot(): SettingsSnapshot = SettingsSnapshot(
         voiceEnabled = voiceEnabled,
@@ -122,7 +123,8 @@ data class SettingsDto(
         preChangeSeconds = preChangeSeconds,
         units = units,
         speeds = speeds,
-        biometrics = biometrics?.toDomain()
+        biometrics = biometrics?.toDomain(),
+        healthConnectEnabled = healthConnectEnabled,
     )
 
     companion object {
@@ -133,7 +135,8 @@ data class SettingsDto(
             preChangeSeconds = snapshot.preChangeSeconds,
             units = snapshot.units,
             speeds = snapshot.speeds,
-            biometrics = snapshot.biometrics?.let { BiometricsDto.from(it) }
+            biometrics = snapshot.biometrics?.let { BiometricsDto.from(it) },
+            healthConnectEnabled = snapshot.healthConnectEnabled,
         )
     }
 }

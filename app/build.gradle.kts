@@ -41,6 +41,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":healthconnect"))
+
     implementation(libs.androidx.ui)
     implementation(libs.androidx.material3)
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
@@ -74,6 +76,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("androidx.test:core:1.6.1")
     testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
