@@ -7,14 +7,8 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_AVAILABLE
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_APP_NOT_VERIFIED
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_DISABLED
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord.Builder as ExerciseSessionRecordBuilder
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -37,7 +31,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
             HcAvailability.SUPPORTED_INSTALLED -> true
             HcAvailability.SUPPORTED_NOT_INSTALLED -> {
                 when (status) {
-                    SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
+                    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
                         openAppSettings(context)
                     }
                     else -> {
@@ -117,13 +111,13 @@ class HealthConnectRepoImpl : HealthConnectRepo {
 }
 
 internal fun mapSdkStatusToAvailability(status: Int): HcAvailability = when (status) {
-    SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
-    SDK_UNAVAILABLE_PROVIDER_DISABLED,
-    SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
-    SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
-    SDK_UNAVAILABLE,
-    SDK_UNAVAILABLE_APP_NOT_VERIFIED,
-    SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION -> HcAvailability.NOT_SUPPORTED
+    HealthConnectClient.SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_DISABLED,
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
+    HealthConnectClient.SDK_UNAVAILABLE,
+    HealthConnectClient.SDK_UNAVAILABLE_APP_NOT_VERIFIED,
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION -> HcAvailability.NOT_SUPPORTED
     else -> HcAvailability.NOT_SUPPORTED
 }
 
@@ -134,7 +128,7 @@ private fun buildExerciseRecord(
     endZoneOffset: ZoneOffset?,
     notes: String?,
 ): ExerciseSessionRecord {
-    return ExerciseSessionRecord.Builder(
+    return ExerciseSessionRecordBuilder(
         startTime,
         startZoneOffset,
         endTime,
