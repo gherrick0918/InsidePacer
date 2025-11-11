@@ -2,13 +2,13 @@ package app.insidepacer.engine
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import app.insidepacer.audio.BeepPlayer
 import app.insidepacer.audio.CueDuckingManager
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.formatSpeed
@@ -31,7 +31,7 @@ class CuePlayer(
     private val duckingManager: CueDuckingManager,
 ) : TextToSpeech.OnInitListener {
     private val tts: TextToSpeech
-    private val beeper = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+    private val beepPlayer = BeepPlayer()
     private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         ctx.getSystemService(Vibrator::class.java)
     } else {
@@ -206,7 +206,7 @@ class CuePlayer(
     fun release() {
         tts.stop()
         tts.shutdown()
-        beeper.release()
+        beepPlayer.release()
         vibrator?.cancel()
         scope.cancel()
     }
@@ -228,7 +228,7 @@ class CuePlayer(
     }
 
     private suspend fun playTone(toneType: Int, durationMs: Int) {
-        beeper.startTone(toneType, durationMs)
+        beepPlayer.playTone(toneType, durationMs)
         delay(durationMs.toLong())
     }
 
