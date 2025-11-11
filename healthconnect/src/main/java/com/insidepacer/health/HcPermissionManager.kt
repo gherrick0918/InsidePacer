@@ -20,10 +20,11 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
 
     suspend fun requestWritePermission(activity: ComponentActivity): Boolean = suspendCancellableCoroutine { cont ->
         val launcherKey = "hc-permission-${System.identityHashCode(this)}-${System.nanoTime()}"
+        val contract = HealthPermission.createRequestPermissionResultContract()
         var launcher: ActivityResultLauncher<Set<HealthPermission>>? = null
-        launcher = activity.activityResultRegistry.register(
+        launcher = activity.activityResultRegistry.register<Set<HealthPermission>, Set<HealthPermission>>(
             launcherKey,
-            client.permissionController.createRequestPermissionResultContract()
+            contract
         ) { granted: Set<HealthPermission> ->
             launcher?.unregister()
             val grantedAll = granted.containsAll(writePermissions)

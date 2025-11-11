@@ -30,7 +30,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
             HcAvailability.SUPPORTED_INSTALLED -> true
             HcAvailability.SUPPORTED_NOT_INSTALLED -> {
                 when (status) {
-                    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
+                    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
                         openAppSettings(context)
                     }
                     else -> {
@@ -110,10 +110,10 @@ class HealthConnectRepoImpl : HealthConnectRepo {
 }
 
 internal fun mapSdkStatusToAvailability(status: Int): HcAvailability = when (status) {
-    HealthConnectClient.SdkAvailabilityStatus.SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED,
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
+    HealthConnectClient.SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_DISABLED,
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
+    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
     else -> HcAvailability.NOT_SUPPORTED
 }
 
@@ -124,15 +124,12 @@ private fun buildExerciseRecord(
     endZoneOffset: ZoneOffset?,
     notes: String?,
 ): ExerciseSessionRecord {
-    val builder = ExerciseSessionRecord.Builder(
-        startTime,
-        startZoneOffset,
-        endTime,
-        endZoneOffset,
-        ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+    return ExerciseSessionRecord(
+        startTime = startTime,
+        startZoneOffset = startZoneOffset,
+        endTime = endTime,
+        endZoneOffset = endZoneOffset,
+        exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+        notes = notes,
     )
-    if (!notes.isNullOrEmpty()) {
-        builder.setNotes(notes)
-    }
-    return builder.build()
 }
