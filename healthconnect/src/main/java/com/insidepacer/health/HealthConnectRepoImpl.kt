@@ -7,6 +7,13 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectClient.Companion.SDK_AVAILABLE
+import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE
+import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_APP_NOT_VERIFIED
+import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_DISABLED
+import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED
+import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION
+import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import java.time.Instant
 import java.time.ZoneId
@@ -110,13 +117,13 @@ class HealthConnectRepoImpl : HealthConnectRepo {
 }
 
 internal fun mapSdkStatusToAvailability(status: Int): HcAvailability = when (status) {
-    HealthConnectClient.SdkAvailabilityStatus.SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED,
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE,
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_APP_NOT_VERIFIED,
-    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION -> HcAvailability.NOT_SUPPORTED
+    SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
+    SDK_UNAVAILABLE_PROVIDER_DISABLED,
+    SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
+    SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
+    SDK_UNAVAILABLE,
+    SDK_UNAVAILABLE_APP_NOT_VERIFIED,
+    SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION -> HcAvailability.NOT_SUPPORTED
     else -> HcAvailability.NOT_SUPPORTED
 }
 
