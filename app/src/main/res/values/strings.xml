@@ -12,6 +12,9 @@
     <string name="session_notification_elapsed_only">Elapsed %1$s</string>
     <string name="session_notification_next_speed">Next %1$s in %2$s</string>
     <string name="session_starting_up">Starting up</string>
+    <string name="session_notification_public_ready">Session ready</string>
+    <string name="session_notification_public_active">Session in progress</string>
+    <string name="session_notification_public_paused">Session paused</string>
     <string name="backup_sign_in">Sign in with Google</string>
     <string name="backup_signed_in">Signed in as %1$s</string>
     <string name="backup_signed_in_status">Signed in as %1$s</string>

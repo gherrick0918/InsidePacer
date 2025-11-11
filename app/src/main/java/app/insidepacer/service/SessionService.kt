@@ -121,7 +121,12 @@ class SessionService : Service() {
         val scheduler = scheduler
         when (intent?.action) {
             ACTION_START -> handleStart(intent, startId)
-            NotifActions.ACTION_STOP -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.stop()
+            NotifActions.ACTION_STOP -> {
+                if (scheduler != null && matchesSessionIntent(intent)) {
+                    scheduler.stop()
+                }
+                onSessionCompleted()
+            }
             NotifActions.ACTION_PAUSE -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.pause()
             NotifActions.ACTION_RESUME -> if (scheduler != null && matchesSessionIntent(intent)) scheduler.resume()
             ACTION_OBSERVE, null -> {
@@ -265,6 +270,7 @@ class SessionService : Service() {
             elapsedMs = elapsedMs,
             title = getString(R.string.app_name),
             subtitle = getString(R.string.session_starting_up),
+            publicSubtitle = getString(R.string.session_notification_public_ready),
             pauseOrResumeAction = null,
             stopAction = NotifActions.stop(this, null),
             debugSegmentId = "-",
@@ -334,12 +340,7 @@ class SessionService : Service() {
 
             if (hasObservedActiveSession) {
                 hasObservedActiveSession = false
-                if (inForeground) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    inForeground = false
-                }
-                notificationManager.cancel(NOTIFICATION_ID)
-                stopSelf()
+                onSessionCompleted()
             }
         }
     }
@@ -388,6 +389,7 @@ class SessionService : Service() {
     ): SessionNotifications.SessionUiBits? {
         val title = buildTitle(state)
         val subtitle = buildSubtitle(state)
+        val publicSubtitle = buildPublicSubtitle(state)
         val pauseResumeAction = when {
             !state.active -> null
             state.isPaused -> NotifActions.resume(this, state.sessionId)
@@ -401,6 +403,7 @@ class SessionService : Service() {
             elapsedMs = elapsedMs.coerceAtLeast(0L),
             title = title,
             subtitle = subtitle,
+            publicSubtitle = publicSubtitle,
             pauseOrResumeAction = pauseResumeAction,
             stopAction = stopAction,
             debugSegmentId = debugId,
@@ -439,6 +442,17 @@ class SessionService : Service() {
         return listOfNotNull(timeline, status.takeIf { it.isNotBlank() })
             .filter { it.isNotBlank() }
             .joinToString(" • ")
+    }
+
+    private fun buildPublicSubtitle(state: SessionState): String {
+        if (!state.active) {
+            return getString(R.string.session_notification_public_ready)
+        }
+        return if (state.isPaused) {
+            getString(R.string.session_notification_public_paused)
+        } else {
+            getString(R.string.session_notification_public_active)
+        }
     }
 
     private fun buildDebugSegmentId(state: SessionState): String {
@@ -490,6 +504,24 @@ class SessionService : Service() {
             runCatching { formatPace(state.speed, state.units) }.getOrNull()?.let { parts += "Pace $it" }
         }
         return parts.joinToString(" • ")
+    }
+
+    private fun onSessionCompleted() {
+        tickerJob?.cancel()
+        tickerJob = null
+        hasObservedActiveSession = false
+        if (inForeground) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(Service.STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            inForeground = false
+        }
+        notificationManager.cancel(NOTIFICATION_ID)
+        hasPendingStartCommand = false
+        stopSelf()
     }
 
     private fun matchesSessionIntent(intent: Intent?): Boolean {

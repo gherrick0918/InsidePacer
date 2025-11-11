@@ -23,12 +23,13 @@ object SessionNotifications {
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.app_name),
-            NotificationManager.IMPORTANCE_LOW,
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = context.getString(R.string.session_ready)
             setShowBadge(false)
             enableVibration(false)
             setSound(null, null)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         nm.createNotificationChannel(channel)
     }
@@ -38,6 +39,7 @@ object SessionNotifications {
         val elapsedMs: Long,
         val title: String,
         val subtitle: String,
+        val publicSubtitle: String,
         val pauseOrResumeAction: NotificationCompat.Action?,
         val stopAction: NotificationCompat.Action?,
         val debugSegmentId: String,
@@ -54,8 +56,12 @@ object SessionNotifications {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        val whenMs = (state.startedAtEpochMs ?: (System.currentTimeMillis() - state.elapsedMs))
+            .coerceAtLeast(0L)
+        val showChronometer = state.startedAtEpochMs != null && state.isActive && !state.isPaused
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_walk)
             .setContentTitle(state.title)
             .setContentText(state.subtitle)
             .setContentIntent(contentIntent)
@@ -64,17 +70,29 @@ object SessionNotifications {
             .setAutoCancel(false)
             .setSilent(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+            .setLocalOnly(false)
+            .setShowWhen(true)
+            .setUsesChronometer(showChronometer)
+            .setWhen(whenMs)
 
-        val showChronometer = state.startedAtEpochMs != null && state.isActive && !state.isPaused
-        if (state.startedAtEpochMs != null) {
-            builder.setShowWhen(true)
-            builder.setWhen(state.startedAtEpochMs)
-            builder.setUsesChronometer(showChronometer)
-        } else {
-            builder.setShowWhen(false)
+        val publicNotification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_walk)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(state.publicSubtitle)
+            .setShowWhen(true)
+            .setUsesChronometer(showChronometer)
+            .setWhen(whenMs)
+            .setOngoing(state.isActive)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .build()
+
+        builder.setPublicVersion(publicNotification)
+
+        if (!showChronometer) {
             builder.setUsesChronometer(false)
         }
 

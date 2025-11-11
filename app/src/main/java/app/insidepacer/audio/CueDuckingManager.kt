@@ -2,8 +2,10 @@ package app.insidepacer.audio
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.util.Log
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -21,6 +23,7 @@ class CueDuckingManager(context: Context) {
 
     private suspend fun <T> withFocus(attributes: AudioAttributes, block: suspend () -> T): T {
         return mutex.withLock {
+            logCurrentOutputDevice()
             val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(attributes)
                 .setOnAudioFocusChangeListener { }
@@ -34,10 +37,18 @@ class CueDuckingManager(context: Context) {
         }
     }
 
+    private fun logCurrentOutputDevice() {
+        val device = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            .firstOrNull(AudioDeviceInfo::isSink)
+        if (device != null) {
+            Log.d("CueRoute", "Output: ${device.productName} / type=${device.type}")
+        }
+    }
+
     private companion object {
         val BEEP_ATTRIBUTES: AudioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
             .build()
 
         val TTS_ATTRIBUTES: AudioAttributes = AudioAttributes.Builder()
