@@ -37,7 +37,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
             HcAvailability.SUPPORTED_INSTALLED -> true
             HcAvailability.SUPPORTED_NOT_INSTALLED -> {
                 when (status) {
-                    SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
+                    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
                         openAppSettings(context)
                     }
                     else -> {
