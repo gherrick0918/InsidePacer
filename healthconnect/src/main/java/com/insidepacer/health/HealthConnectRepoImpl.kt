@@ -10,12 +10,13 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
 
 class HealthConnectRepoImpl : HealthConnectRepo {
     override suspend fun availability(context: Context): HcAvailability {
         val status = HealthConnectClient.getSdkStatus(
             context,
-            HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+            HEALTH_CONNECT_PACKAGE_NAME
         )
         return mapSdkStatusToAvailability(status)
     }
@@ -23,13 +24,13 @@ class HealthConnectRepoImpl : HealthConnectRepo {
     override suspend fun ensureInstalled(context: Context): Boolean {
         val status = HealthConnectClient.getSdkStatus(
             context,
-            HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+            HEALTH_CONNECT_PACKAGE_NAME
         )
         return when (mapSdkStatusToAvailability(status)) {
             HcAvailability.SUPPORTED_INSTALLED -> true
             HcAvailability.SUPPORTED_NOT_INSTALLED -> {
                 when (status) {
-                    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
+                    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
                         openAppSettings(context)
                     }
                     else -> {
@@ -71,19 +72,20 @@ class HealthConnectRepoImpl : HealthConnectRepo {
         val zone = ZoneId.systemDefault()
         val startOffset = zone.rules.getOffset(startTime)
         val endOffset = zone.rules.getOffset(endTime)
-        val record = ExerciseSessionRecord(
-            exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+        val record = buildExerciseRecord(
             startTime = startTime,
             startZoneOffset = startOffset,
             endTime = endTime,
             endZoneOffset = endOffset,
-            notes = notes,
+            notes = notes
         )
-        return runCatching { client.insertRecords(listOf(record)) }
+        return runCatching {
+            client.insertRecords(listOf(record))
+        }.map { }
     }
 
     private fun openPlayStore(context: Context) {
-        val packageName = HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+        val packageName = HEALTH_CONNECT_PACKAGE_NAME
         val playIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
@@ -98,7 +100,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
     }
 
     private fun openAppSettings(context: Context) {
-        val packageName = HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+        val packageName = HEALTH_CONNECT_PACKAGE_NAME
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.parse("package:$packageName")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -108,9 +110,29 @@ class HealthConnectRepoImpl : HealthConnectRepo {
 }
 
 internal fun mapSdkStatusToAvailability(status: Int): HcAvailability = when (status) {
-    HealthConnectClient.SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
-    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_DISABLED,
-    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
-    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
+    HealthConnectClient.SdkAvailabilityStatus.SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
+    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED,
+    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
+    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
     else -> HcAvailability.NOT_SUPPORTED
+}
+
+private fun buildExerciseRecord(
+    startTime: Instant,
+    startZoneOffset: ZoneOffset?,
+    endTime: Instant,
+    endZoneOffset: ZoneOffset?,
+    notes: String?,
+): ExerciseSessionRecord {
+    val builder = ExerciseSessionRecord.Builder(
+        startTime,
+        startZoneOffset,
+        endTime,
+        endZoneOffset,
+        ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+    )
+    if (!notes.isNullOrEmpty()) {
+        builder.setNotes(notes)
+    }
+    return builder.build()
 }

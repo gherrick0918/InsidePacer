@@ -44,6 +44,7 @@ import app.insidepacer.core.formatSpeed
 import app.insidepacer.core.speedUnitLabel
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.Units
+import com.insidepacer.health.HEALTH_CONNECT_PACKAGE_NAME
 import com.insidepacer.health.HcAvailability
 import com.insidepacer.health.HealthConnectRepo
 import com.insidepacer.health.HealthConnectRepoImpl
@@ -337,7 +338,7 @@ private fun SettingsSwitchRow(
 
 private fun openHealthConnect(context: Context) {
     val packageManager = context.packageManager
-    val packageName = androidx.health.connect.client.HealthConnectClient.DEFAULT_HEALTH_CONNECT_PACKAGE_NAME
+    val packageName = HEALTH_CONNECT_PACKAGE_NAME
     val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
     if (launchIntent != null) {
         context.startActivity(launchIntent)

@@ -10,7 +10,7 @@ import kotlin.coroutines.resume
 
 internal class HcPermissionManager(private val client: HealthConnectClient) {
     private val writePermissions = setOf(
-        HealthPermission.createWritePermission(ExerciseSessionRecord::class)
+        HealthPermission.getWritePermission(ExerciseSessionRecord::class)
     )
 
     suspend fun hasWritePermission(): Boolean {
@@ -24,14 +24,14 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         launcher = activity.activityResultRegistry.register(
             launcherKey,
             client.permissionController.createRequestPermissionResultContract()
-        ) { granted ->
+        ) { granted: Set<HealthPermission> ->
             launcher?.unregister()
             val grantedAll = granted.containsAll(writePermissions)
             if (cont.isActive) {
                 cont.resume(grantedAll)
             }
         }
-        launcher.launch(writePermissions)
-        cont.invokeOnCancellation { launcher.unregister() }
+        launcher?.launch(writePermissions)
+        cont.invokeOnCancellation { launcher?.unregister() }
     }
 }
