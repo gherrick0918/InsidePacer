@@ -15,7 +15,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 internal class HcPermissionManager(private val client: HealthConnectClient) {
-    private val writePermissions: Set<String> = setOf(
+    private val writePermissions: Set<HealthPermission> = setOf(
         HealthPermission.getWritePermission(ExerciseSessionRecord::class)
     )
 
@@ -30,7 +30,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
             val launcherKey = "hc-permission-${System.identityHashCode(this)}-${System.nanoTime()}"
             val contract = resolveRequestPermissionContract(controller)
             if (contract != null) {
-                lateinit var launcher: ActivityResultLauncher<Set<String>>
+                lateinit var launcher: ActivityResultLauncher<Set<HealthPermission>>
                 launcher = activity.activityResultRegistry.register(
                     launcherKey,
                     contract
@@ -79,18 +79,18 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
 @Suppress("UNCHECKED_CAST")
 private fun resolveRequestPermissionContract(
     controller: PermissionController,
-): ActivityResultContract<Set<String>, Set<String>>? {
+): ActivityResultContract<Set<HealthPermission>, Set<HealthPermission>>? {
     return runCatching {
         val method = controller::class.java.methods.firstOrNull { method ->
             method.name == "createRequestPermissionActivityContract" && method.parameterTypes.isEmpty()
         }
-        method?.invoke(controller) as? ActivityResultContract<Set<String>, Set<String>>
+        method?.invoke(controller) as? ActivityResultContract<Set<HealthPermission>, Set<HealthPermission>>
     }.getOrNull()
 }
 
 private fun resolveRequestPermissionIntent(
     controller: PermissionController,
-    permissions: Set<String>,
+    permissions: Set<HealthPermission>,
 ): Intent? {
     return runCatching {
         val method = controller::class.java.methods.firstOrNull { method ->

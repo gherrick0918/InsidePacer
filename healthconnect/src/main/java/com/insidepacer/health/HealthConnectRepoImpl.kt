@@ -7,13 +7,13 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_AVAILABLE
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_APP_NOT_VERIFIED
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_DISABLED
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION
-import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED
+import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_AVAILABLE
+import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE
+import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_APP_NOT_VERIFIED
+import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED
+import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED
+import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION
+import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import java.time.Instant
 import java.time.ZoneId
@@ -37,7 +37,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
             HcAvailability.SUPPORTED_INSTALLED -> true
             HcAvailability.SUPPORTED_NOT_INSTALLED -> {
                 when (status) {
-                    HealthConnectClient.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
+                    SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
                         openAppSettings(context)
                     }
                     else -> {
@@ -136,11 +136,11 @@ private fun buildExerciseRecord(
 ): ExerciseSessionRecord {
     val builder = ExerciseSessionRecord.Builder(
         startTime,
-        startZoneOffset,
         endTime,
-        endZoneOffset,
         ExerciseSessionRecord.EXERCISE_TYPE_WALKING
     )
+    builder.setStartZoneOffset(startZoneOffset)
+    builder.setEndZoneOffset(endZoneOffset)
     notes?.let { builder.setNotes(it) }
     return builder.build()
 }
