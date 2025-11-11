@@ -9,6 +9,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.Parcelable
+import android.widget.Toast
 import app.insidepacer.BuildConfig
 import app.insidepacer.R
 import app.insidepacer.core.formatDuration
@@ -23,6 +24,10 @@ import app.insidepacer.domain.Segment
 import app.insidepacer.domain.SessionLog
 import app.insidepacer.domain.SessionState
 import app.insidepacer.engine.SessionScheduler
+import app.insidepacer.healthconnect.HealthConnectSessionSyncer
+import androidx.core.content.ContextCompat
+import com.insidepacer.health.HealthConnectRepo
+import com.insidepacer.health.HealthConnectRepoImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +63,7 @@ class SessionService : Service() {
     private lateinit var sessionRepo: SessionRepo
     private lateinit var progressRepo: ProgramProgressRepo
     private lateinit var settingsRepo: SettingsRepo
+    private lateinit var healthConnectSyncer: HealthConnectSessionSyncer
     private lateinit var notificationManager: NotificationManager
     @Volatile
     private var isInitialized = false
@@ -68,6 +74,8 @@ class SessionService : Service() {
     private var lastState: SessionState? = null
     private var lastUiBits: SessionNotifications.SessionUiBits? = null
     private var inForeground = false
+    private val healthConnectRepo: HealthConnectRepo by lazy { HealthConnectRepoImpl() }
+    private val mainExecutor by lazy { ContextCompat.getMainExecutor(this) }
 
     private data class StartRequest(val intent: Intent, val startId: Int)
 
@@ -83,6 +91,13 @@ class SessionService : Service() {
         super.onCreate()
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         settingsRepo = SettingsRepo(applicationContext)
+        healthConnectSyncer = HealthConnectSessionSyncer(
+            context = applicationContext,
+            settingsRepo = settingsRepo,
+            healthConnectRepo = healthConnectRepo,
+        ) { error ->
+            showHealthConnectFailure(error)
+        }
         SessionNotifications.ensureChannel(this)
         if (BuildConfig.DEBUG) {
             scope.launch {
@@ -253,6 +268,7 @@ class SessionService : Service() {
             aborted = aborted
         )
         sessionRepo.append(log)
+        healthConnectSyncer.onSessionLogged(log)
     }
 
     override fun onDestroy() {
@@ -522,6 +538,17 @@ class SessionService : Service() {
         notificationManager.cancel(NOTIFICATION_ID)
         hasPendingStartCommand = false
         stopSelf()
+    }
+
+    private fun showHealthConnectFailure(error: Throwable) {
+        val message = error.message?.takeIf { it.isNotBlank() } ?: error::class.java.simpleName
+        mainExecutor.execute {
+            Toast.makeText(
+                applicationContext,
+                getString(R.string.health_connect_write_failure, message),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     private fun matchesSessionIntent(intent: Intent?): Boolean {
