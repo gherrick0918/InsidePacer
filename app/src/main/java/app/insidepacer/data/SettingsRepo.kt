@@ -31,6 +31,7 @@ class SettingsRepo(private val context: Context) {
     private val KEY_BEEP_ENABLED    = booleanPreferencesKey("beep_enabled")
     private val KEY_HAPTIC_ENABLED  = booleanPreferencesKey("haptic_enabled")
     private val KEY_DEBUG_NOTIF_SUBTEXT = booleanPreferencesKey("debug_notif_subtext")
+    private val KEY_HEALTH_CONNECT_ENABLED = booleanPreferencesKey("health_connect_enabled")
 
     // Defaults
     val voiceEnabled = context.settingsDataStore.data.map { it[KEY_VOICE_ENABLED] ?: true }
@@ -39,6 +40,9 @@ class SettingsRepo(private val context: Context) {
     val hapticsEnabled = context.settingsDataStore.data.map { it[KEY_HAPTIC_ENABLED] ?: false }
     val debugShowNotifSubtext = context.settingsDataStore.data.map {
         it[KEY_DEBUG_NOTIF_SUBTEXT] ?: BuildConfig.DEBUG
+    }
+    val healthConnectEnabled = context.settingsDataStore.data.map {
+        it[KEY_HEALTH_CONNECT_ENABLED] ?: false
     }
 
     suspend fun setVoiceEnabled(enabled: Boolean) {
@@ -59,6 +63,10 @@ class SettingsRepo(private val context: Context) {
 
     suspend fun setDebugShowNotifSubtext(enabled: Boolean) {
         context.settingsDataStore.edit { it[KEY_DEBUG_NOTIF_SUBTEXT] = enabled }
+    }
+
+    suspend fun setHealthConnectEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { it[KEY_HEALTH_CONNECT_ENABLED] = enabled }
     }
 
 
