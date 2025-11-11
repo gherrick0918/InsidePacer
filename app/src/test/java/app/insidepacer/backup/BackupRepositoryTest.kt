@@ -51,7 +51,8 @@ class BackupRepositoryTest {
             preChangeSeconds = 10,
             units = Units.MPH,
             speeds = listOf(6.0),
-            biometrics = Biometrics(heightCm = 180, weightKg = 75.0, age = 30)
+            biometrics = Biometrics(heightCm = 180, weightKg = 75.0, age = 30),
+            healthConnectEnabled = false,
         )
 
         val templateStore = FakeTemplateStore(mutableListOf(template))
