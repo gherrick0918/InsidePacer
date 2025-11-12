@@ -14,46 +14,73 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 internal class HcPermissionManager(private val client: HealthConnectClient) {
-    private val writePermissions: Set<Any> = setOf(
+    private val writePermissionsModern: Set<HealthPermission> = setOf(
         HealthPermission.getWritePermission(ExerciseSessionRecord::class)
     )
-    private val writePermissionTokens: Set<String> = writePermissions.mapNotNull(::permissionToken).toSet()
+    private val writePermissionsLegacy: Set<String> = setOf(
+        LEGACY_WRITE_PERMISSION
+    )
+    private val writePermissionTokens: Set<String> = buildSet {
+        writePermissionsModern.mapNotNull(::permissionTokenModern).forEach { add(it) }
+        writePermissionsLegacy.forEach { add(it) }
+    }
 
     suspend fun hasWritePermission(): Boolean {
         val granted = client.permissionController.getGrantedPermissions()
-        val grantedTokens = granted.mapNotNull(::permissionToken).toSet()
-        if (grantedTokens.isNotEmpty() && writePermissionTokens.isNotEmpty()) {
-            return grantedTokens.containsAll(writePermissionTokens)
+        val grantedTokens = granted.mapNotNull(::permissionTokenAny).toSet()
+        if (grantedTokens.isNotEmpty()) {
+            return writePermissionTokens.all(grantedTokens::contains)
         }
 
-        @Suppress("UNCHECKED_CAST")
-        val grantedStrings = granted as? Set<String>
-        if (grantedStrings != null) {
-            return grantedStrings.containsAll(writePermissions.filterIsInstance<String>())
+        val grantedStrings = granted.filterIsInstance<String>()
+        if (grantedStrings.isNotEmpty()) {
+            return writePermissionsLegacy.all(grantedStrings::contains)
         }
 
-        return granted.containsAll(writePermissions)
+        val grantedModern = granted.filterIsInstance<HealthPermission>()
+        if (grantedModern.isNotEmpty()) {
+            return writePermissionsModern.all { required ->
+                grantedModern.any { granted -> permissionsMatch(granted, required) }
+            }
+        }
+
+        return false
     }
 
     suspend fun requestWritePermission(activity: ComponentActivity): Boolean =
         suspendCancellableCoroutine { cont ->
             val controller = client.permissionController
             val launcherKey = "hc-permission-${System.identityHashCode(this)}-${System.nanoTime()}"
-            val intent = resolveRequestPermissionIntent(controller, writePermissions)
-            if (intent == null) {
-                if (cont.isActive) {
-                    cont.resume(false)
+            val contract = resolveRequestPermissionContract(controller)
+            if (contract != null) {
+                lateinit var launcher: ActivityResultLauncher<Set<HealthPermission>>
+                launcher = activity.activityResultRegistry.register(
+                    launcherKey,
+                    contract
+                ) { grantedPermissions ->
+                    runCatching { launcher.unregister() }
+                    activity.lifecycleScope.launch {
+                        val granted = if (grantedPermissions == null) {
+                            runCatching { hasWritePermission() }.getOrDefault(false)
+                        } else {
+                            val tokens = grantedPermissions.mapNotNull(::permissionTokenModern).toSet()
+                            if (tokens.isNotEmpty()) {
+                                writePermissionTokens.all(tokens::contains)
+                            } else {
+                                grantedPermissions.containsAll(writePermissionsModern)
+                            }
+                        }
+                        if (cont.isActive) {
+                            cont.resume(granted)
+                        }
+                    }
                 }
-                return@suspendCancellableCoroutine
-            }
-            lateinit var launcher: ActivityResultLauncher<Intent>
-            launcher = activity.activityResultRegistry.register(
-                launcherKey,
-                ActivityResultContracts.StartActivityForResult()
-            ) {
-                runCatching { launcher.unregister() }
-                activity.lifecycleScope.launch {
-                    val granted = runCatching { hasWritePermission() }.getOrDefault(false)
+                launcher.launch(writePermissionsModern)
+                cont.invokeOnCancellation { runCatching { launcher.unregister() } }
+            } else {
+                val intent = resolveRequestPermissionIntent(controller, writePermissionsModern)
+                    ?: resolveRequestPermissionIntent(controller, writePermissionsLegacy)
+                if (intent == null) {
                     if (cont.isActive) {
                         cont.resume(granted)
                     }
@@ -64,9 +91,21 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         }
 }
 
+@Suppress("UNCHECKED_CAST")
+private fun resolveRequestPermissionContract(
+    controller: PermissionController,
+): ActivityResultContract<Set<HealthPermission>, Set<HealthPermission>>? {
+    return runCatching {
+        val method = controller::class.java.methods.firstOrNull { method ->
+            method.name == "createRequestPermissionActivityContract" && method.parameterTypes.isEmpty()
+        }
+        method?.invoke(controller) as? ActivityResultContract<Set<HealthPermission>, Set<HealthPermission>>
+    }.getOrNull()
+}
+
 private fun resolveRequestPermissionIntent(
     controller: PermissionController,
-    permissions: Set<Any>,
+    permissions: Set<*>,
 ): Intent? {
     return runCatching {
         val method = controller::class.java.methods.firstOrNull { method ->
@@ -76,26 +115,66 @@ private fun resolveRequestPermissionIntent(
     }.getOrNull()
 }
 
-private fun permissionToken(permission: Any?): String? {
-    return when (permission) {
-        null -> null
-        is String -> permission
-        else -> {
-            val clazz = permission::class.java
-            val getter = clazz.methods.firstOrNull { it.name == "getPermission" && it.parameterCount == 0 }
-            if (getter != null) {
-                runCatching { getter.invoke(permission) as? String }.getOrNull()
-                    ?.let { return it }
-            }
+private fun permissionTokenAny(permission: Any?): String? = when (permission) {
+    null -> null
+    is String -> permission
+    is HealthPermission -> permissionTokenModern(permission)
+    else -> permissionTokenReflective(permission)
+}
 
-            val field = runCatching {
-                clazz.getDeclaredField("permission").apply { isAccessible = true }
-            }.getOrNull()
-            if (field != null) {
-                runCatching { field.get(permission) as? String }.getOrNull()?.let { return it }
-            }
+private fun permissionTokenModern(permission: HealthPermission): String? =
+    permissionTokenReflective(permission)
 
-            null
+private fun permissionTokenReflective(permission: Any): String? {
+    val clazz = permission::class.java
+    for (name in METHOD_NAMES) {
+        val method = clazz.methods.firstOrNull { it.name == name && it.parameterCount == 0 }
+        if (method != null) {
+            runCatching { method.invoke(permission) as? String }
+                .getOrNull()?.let { return it }
         }
     }
+
+    for (name in FIELD_NAMES) {
+        val field = runCatching {
+            clazz.getDeclaredField(name).apply { isAccessible = true }
+        }.getOrNull() ?: continue
+        runCatching { field.get(permission) as? String }
+            .getOrNull()?.let { return it }
+    }
+
+    val description = permission.toString()
+    val delimiter = description.indexOf('=')
+    if (delimiter != -1) {
+        val end = description.indexOf(')', startIndex = delimiter)
+        val token = description.substring(delimiter + 1, if (end == -1) description.length else end)
+            .trim()
+        if (token.isNotEmpty() && !token.contains('@')) {
+            return token
+        }
+    }
+    return null
 }
+
+private fun permissionsMatch(a: HealthPermission, b: HealthPermission): Boolean {
+    if (a == b) return true
+    val tokens = listOf(permissionTokenModern(a), permissionTokenModern(b))
+    if (tokens[0] != null && tokens[1] != null) {
+        return tokens[0] == tokens[1]
+    }
+    return false
+}
+
+private const val LEGACY_WRITE_PERMISSION = "android.permission.health.WRITE_EXERCISE"
+
+private val METHOD_NAMES = listOf(
+    "getPermission",
+    "getPermissionString",
+    "getPermissionId",
+    "getPermissionName",
+)
+
+private val FIELD_NAMES = listOf(
+    "permission",
+    "permissionString",
+)
