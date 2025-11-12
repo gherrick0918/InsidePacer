@@ -3,7 +3,6 @@ package com.insidepacer.health
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
@@ -83,26 +82,12 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                     ?: resolveRequestPermissionIntent(controller, writePermissionsLegacy)
                 if (intent == null) {
                     if (cont.isActive) {
-                        cont.resume(false)
-                    }
-                    return@suspendCancellableCoroutine
-                }
-                lateinit var launcher: ActivityResultLauncher<Intent>
-                launcher = activity.activityResultRegistry.register(
-                    launcherKey,
-                    ActivityResultContracts.StartActivityForResult()
-                ) {
-                    runCatching { launcher.unregister() }
-                    activity.lifecycleScope.launch {
-                        val granted = runCatching { hasWritePermission() }.getOrDefault(false)
-                        if (cont.isActive) {
-                            cont.resume(granted)
-                        }
+                        cont.resume(granted)
                     }
                 }
-                launcher.launch(intent)
-                cont.invokeOnCancellation { runCatching { launcher.unregister() } }
             }
+            launcher.launch(intent)
+            cont.invokeOnCancellation { runCatching { launcher.unregister() } }
         }
 }
 
