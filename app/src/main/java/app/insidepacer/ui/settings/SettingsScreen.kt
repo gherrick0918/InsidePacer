@@ -94,7 +94,7 @@ fun SettingsScreen(
         val combinedPadding = PaddingValues(
             start = innerPadding.calculateStartPadding(layoutDirection) +
                 systemPadding.calculateStartPadding(layoutDirection),
-            top = innerPadding.calculateTopPadding() + systemPadding.calculateTopPadding(),
+            top = innerPadding.calculateTopPadding(),
             end = innerPadding.calculateEndPadding(layoutDirection) +
                 systemPadding.calculateEndPadding(layoutDirection),
             bottom = innerPadding.calculateBottomPadding() +
