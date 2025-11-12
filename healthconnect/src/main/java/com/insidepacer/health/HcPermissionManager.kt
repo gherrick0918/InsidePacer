@@ -21,10 +21,6 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
     private val writePermissionsLegacy: Set<String> = setOf(
         LEGACY_WRITE_PERMISSION
     )
-    private val writePermissionTokens: Set<String> = buildSet {
-        writePermissionsModern.forEach { add(it) }
-        writePermissionsLegacy.forEach { add(it) }
-    }
 
     suspend fun hasWritePermission(): Boolean {
         val granted = client.permissionController.getGrantedPermissions()
