@@ -15,6 +15,7 @@ import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILA
 import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION
 import androidx.health.connect.client.HealthConnectClient.Companion.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.Metadata
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -88,7 +89,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
         )
         return runCatching {
             client.insertRecords(listOf(record))
-        }.map { }
+        }.map { Unit }
     }
 
     private fun openPlayStore(context: Context) {
@@ -134,13 +135,17 @@ private fun buildExerciseRecord(
     endZoneOffset: ZoneOffset?,
     notes: String?,
 ): ExerciseSessionRecord {
-    val builder = ExerciseSessionRecord.Builder(
-        startTime,
-        endTime,
-        ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+    return ExerciseSessionRecord(
+        startTime = startTime,
+        startZoneOffset = startZoneOffset,
+        endTime = endTime,
+        endZoneOffset = endZoneOffset,
+        exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+        title = null,
+        notes = notes,
+        segments = emptyList(),
+        laps = emptyList(),
+        exerciseRoute = null,
+        metadata = Metadata.EMPTY,
     )
-    builder.setStartZoneOffset(startZoneOffset)
-    builder.setEndZoneOffset(endZoneOffset)
-    notes?.let { builder.setNotes(it) }
-    return builder.build()
 }
