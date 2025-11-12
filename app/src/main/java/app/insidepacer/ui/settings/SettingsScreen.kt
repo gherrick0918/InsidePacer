@@ -93,7 +93,10 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(title = { Text("Settings") })
+            CenterAlignedTopAppBar(
+                title = { Text("Settings") },
+                windowInsets = WindowInsets(0, 0, 0, 0)
+            )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
@@ -300,12 +303,17 @@ private fun IntegrationsCard(
         Text(statusText, style = MaterialTheme.typography.bodyMedium)
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            val buttonText = when {
+                state.availability == HcAvailability.SUPPORTED_NOT_INSTALLED -> "Install Health Connect"
+                !state.permissionGranted -> "Grant permission"
+                else -> "Grant permission"
+            }
             Button(
                 onClick = onGrantPermission,
                 enabled = state.enabled && state.availability != HcAvailability.NOT_SUPPORTED &&
                     (!state.permissionGranted || state.availability == HcAvailability.SUPPORTED_NOT_INSTALLED)
             ) {
-                Text("Grant permission")
+                Text(buttonText)
             }
             Button(
                 onClick = onOpenHealthConnect,
