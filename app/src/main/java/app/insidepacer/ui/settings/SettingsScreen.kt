@@ -109,7 +109,7 @@ fun SettingsScreen(
             innerPadding.calculateBottomPadding().value,
             navigationPadding.calculateBottomPadding().value
         ).dp
-        val topPadding = 0.dp
+        val topPadding = innerPadding.calculateTopPadding()
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),

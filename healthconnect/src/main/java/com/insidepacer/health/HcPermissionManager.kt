@@ -21,6 +21,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
     private val writePermissionsLegacy: Set<String> = setOf(
         LEGACY_WRITE_PERMISSION
     )
+    private val writePermissionsAll: Set<String> = writePermissionsModern + writePermissionsLegacy
 
     suspend fun hasWritePermission(): Boolean {
         val granted = client.permissionController.getGrantedPermissions()
@@ -74,7 +75,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                         }
                     }
                 }
-                launcher.launch(writePermissionsModern)
+                launcher.launch(writePermissionsAll)
                 cont.invokeOnCancellation { runCatching { launcher.unregister() } }
             } else {
                 val intent = resolveRequestPermissionIntent(controller, writePermissionsModern)
