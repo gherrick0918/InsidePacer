@@ -7,14 +7,8 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_AVAILABLE
-import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE
-import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_APP_NOT_VERIFIED
-import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_DISABLED
-import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED
-import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION
-import androidx.health.connect.client.HealthConnectClient.Companion.SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -37,7 +31,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
             HcAvailability.SUPPORTED_INSTALLED -> true
             HcAvailability.SUPPORTED_NOT_INSTALLED -> {
                 when (status) {
-                    SDK_UNAVAILABLE_PROVIDER_DISABLED -> {
+                    sdkAvailabilityStatus.providerDisabled -> {
                         openAppSettings(context)
                     }
                     else -> {
@@ -88,7 +82,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
         )
         return runCatching {
             client.insertRecords(listOf(record))
-        }.map { }
+        }.map { Unit }
     }
 
     private fun openPlayStore(context: Context) {
@@ -116,15 +110,18 @@ class HealthConnectRepoImpl : HealthConnectRepo {
     }
 }
 
-internal fun mapSdkStatusToAvailability(status: Int): HcAvailability = when (status) {
-    SDK_AVAILABLE -> HcAvailability.SUPPORTED_INSTALLED
-    SDK_UNAVAILABLE_PROVIDER_DISABLED,
-    SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED,
-    SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcAvailability.SUPPORTED_NOT_INSTALLED
-    SDK_UNAVAILABLE,
-    SDK_UNAVAILABLE_APP_NOT_VERIFIED,
-    SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION -> HcAvailability.NOT_SUPPORTED
-    else -> HcAvailability.NOT_SUPPORTED
+internal fun mapSdkStatusToAvailability(status: Int): HcAvailability {
+    val codes = sdkAvailabilityStatus
+    return when {
+        status == codes.available -> HcAvailability.SUPPORTED_INSTALLED
+        status == codes.providerDisabled -> HcAvailability.SUPPORTED_NOT_INSTALLED
+        status == codes.providerInstallationRequired -> HcAvailability.SUPPORTED_NOT_INSTALLED
+        status == codes.providerUpdateRequired -> HcAvailability.SUPPORTED_NOT_INSTALLED
+        status == codes.unavailable -> HcAvailability.NOT_SUPPORTED
+        status == codes.appNotVerified -> HcAvailability.NOT_SUPPORTED
+        status == codes.providerPolicyRestriction -> HcAvailability.NOT_SUPPORTED
+        else -> HcAvailability.NOT_SUPPORTED
+    }
 }
 
 private fun buildExerciseRecord(
@@ -134,13 +131,76 @@ private fun buildExerciseRecord(
     endZoneOffset: ZoneOffset?,
     notes: String?,
 ): ExerciseSessionRecord {
-    val builder = ExerciseSessionRecord.Builder(
-        startTime,
-        endTime,
-        ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+    return ExerciseSessionRecord(
+        startTime = startTime,
+        startZoneOffset = startZoneOffset,
+        endTime = endTime,
+        endZoneOffset = endZoneOffset,
+        exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+        title = null,
+        notes = notes,
+        segments = emptyList(),
+        laps = emptyList(),
+        exerciseRoute = null,
+        metadata = Metadata(),
     )
-    builder.setStartZoneOffset(startZoneOffset)
-    builder.setEndZoneOffset(endZoneOffset)
-    notes?.let { builder.setNotes(it) }
-    return builder.build()
+}
+
+private val sdkAvailabilityStatus: SdkAvailabilityStatus by lazy { SdkAvailabilityStatus.create() }
+
+private class SdkAvailabilityStatus(
+    val available: Int,
+    val unavailable: Int?,
+    val providerDisabled: Int?,
+    val providerInstallationRequired: Int?,
+    val providerPolicyRestriction: Int?,
+    val providerUpdateRequired: Int?,
+    val appNotVerified: Int?,
+) {
+    companion object {
+        fun create(): SdkAvailabilityStatus {
+            val companion = runCatching {
+                HealthConnectClient::class.java.getDeclaredField("Companion").apply { isAccessible = true }
+                    .get(null)
+            }.getOrNull()
+
+            fun findIn(target: Any?, type: Class<*>?, name: String): Int? {
+                if (type == null) return null
+                runCatching { type.getField(name).getInt(target) }.getOrNull()?.let { return it }
+                return runCatching {
+                    type.getDeclaredField(name).apply { isAccessible = true }.getInt(target)
+                }.getOrNull()
+            }
+
+            fun findStatus(name: String): Int? {
+                val clientClass = HealthConnectClient::class.java
+                findIn(null, clientClass, name)?.let { return it }
+
+                val companionClass = companion?.javaClass
+                findIn(companion, companionClass, name)?.let { return it }
+
+                val nestedStatuses = companionClass?.declaredClasses?.firstOrNull { it.simpleName == "SdkAvailabilityStatus" }
+                if (nestedStatuses != null) {
+                    val instance = runCatching { nestedStatuses.getField("INSTANCE").get(null) }
+                        .getOrNull() ?: companion
+                    findIn(instance, nestedStatuses, name)?.let { return it }
+                }
+                return null
+            }
+
+            val available = checkNotNull(findStatus("SDK_AVAILABLE")) {
+                "Health Connect SDK_AVAILABLE constant not found"
+            }
+
+            return SdkAvailabilityStatus(
+                available = available,
+                unavailable = findStatus("SDK_UNAVAILABLE"),
+                providerDisabled = findStatus("SDK_UNAVAILABLE_PROVIDER_DISABLED"),
+                providerInstallationRequired = findStatus("SDK_UNAVAILABLE_PROVIDER_INSTALLATION_REQUIRED"),
+                providerPolicyRestriction = findStatus("SDK_UNAVAILABLE_PROVIDER_POLICY_RESTRICTION"),
+                providerUpdateRequired = findStatus("SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED"),
+                appNotVerified = findStatus("SDK_UNAVAILABLE_APP_NOT_VERIFIED"),
+            )
+        }
+    }
 }
