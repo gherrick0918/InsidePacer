@@ -131,22 +131,110 @@ private fun buildExerciseRecord(
     endZoneOffset: ZoneOffset?,
     notes: String?,
 ): ExerciseSessionRecord {
-    return ExerciseSessionRecord(
+    buildExerciseRecordWithBuilder(
         startTime = startTime,
         startZoneOffset = startZoneOffset,
         endTime = endTime,
         endZoneOffset = endZoneOffset,
-        exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
-        title = null,
         notes = notes,
-        segments = emptyList(),
-        laps = emptyList(),
-        exerciseRoute = null,
-        metadata = Metadata(),
-    )
+    )?.let { return it }
+
+    buildExerciseRecordWithConstructor(
+        startTime = startTime,
+        startZoneOffset = startZoneOffset,
+        endTime = endTime,
+        endZoneOffset = endZoneOffset,
+        notes = notes,
+    )?.let { return it }
+
+    error("Unable to create ExerciseSessionRecord instance")
 }
 
 private val sdkAvailabilityStatus: SdkAvailabilityStatus by lazy { SdkAvailabilityStatus.create() }
+
+@Suppress("SpreadOperator")
+private fun buildExerciseRecordWithBuilder(
+    startTime: Instant,
+    startZoneOffset: ZoneOffset?,
+    endTime: Instant,
+    endZoneOffset: ZoneOffset?,
+    notes: String?,
+): ExerciseSessionRecord? {
+    val builderClass = runCatching {
+        Class.forName("androidx.health.connect.client.records.ExerciseSessionRecord\$Builder")
+    }.getOrNull() ?: return null
+
+    val constructor = builderClass.constructors.firstOrNull { it.parameterTypes.size == 3 }
+        ?: return null
+
+    val builder = runCatching {
+        constructor.newInstance(
+            startTime,
+            endTime,
+            ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+        )
+    }.getOrNull() ?: return null
+
+    invokeNullableMethod(builder, "setStartZoneOffset", startZoneOffset)
+    invokeNullableMethod(builder, "setEndZoneOffset", endZoneOffset)
+    invokeNullableMethod(builder, "setNotes", notes)
+
+    return runCatching {
+        builderClass.getMethod("build").invoke(builder) as ExerciseSessionRecord
+    }.getOrNull()
+}
+
+@Suppress("SpreadOperator")
+private fun buildExerciseRecordWithConstructor(
+    startTime: Instant,
+    startZoneOffset: ZoneOffset?,
+    endTime: Instant,
+    endZoneOffset: ZoneOffset?,
+    notes: String?,
+): ExerciseSessionRecord? {
+    val recordClass = ExerciseSessionRecord::class.java
+    val constructor = recordClass.declaredConstructors.maxByOrNull { it.parameterCount }
+        ?: return null
+
+    val instantValues = ArrayDeque(listOf(startTime, endTime))
+    val zoneOffsets = ArrayDeque(listOf(startZoneOffset, endZoneOffset))
+    val stringValues = ArrayDeque<String?>(listOf(null, notes, null))
+    val listValues = ArrayDeque<List<*>>(listOf(emptyList<Any>(), emptyList<Any>()))
+
+    val arguments = Array<Any?>(constructor.parameterCount) { null }
+    constructor.parameterTypes.forEachIndexed { index, type ->
+        arguments[index] = when (type) {
+            Instant::class.java -> instantValues.removeFirstOrNull()
+            ZoneOffset::class.java -> zoneOffsets.removeFirstOrNull()
+            Metadata::class.java -> Metadata()
+            java.lang.Integer.TYPE, java.lang.Integer::class.java ->
+                ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+            String::class.java -> stringValues.removeFirstOrNull()
+            List::class.java -> listValues.removeFirstOrNull() ?: emptyList<Any>()
+            else -> null
+        }
+    }
+
+    return runCatching {
+        constructor.isAccessible = true
+        constructor.newInstance(*arguments) as ExerciseSessionRecord
+    }.getOrNull()
+}
+
+private fun invokeNullableMethod(target: Any, name: String, value: Any?) {
+    val method = target.javaClass.methods.firstOrNull { it.name == name && it.parameterTypes.size == 1 }
+        ?: return
+    if (value == null && method.parameterTypes[0].isPrimitive) {
+        return
+    }
+    if (value == null) {
+        method.invoke(target, *arrayOfNulls<Any>(1))
+    } else {
+        method.invoke(target, value)
+    }
+}
+
+private fun <T> ArrayDeque<T>.removeFirstOrNull(): T? = if (isEmpty()) null else removeFirst()
 
 private class SdkAvailabilityStatus(
     val available: Int,
