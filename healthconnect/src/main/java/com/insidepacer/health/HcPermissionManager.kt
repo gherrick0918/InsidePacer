@@ -82,12 +82,26 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                     ?: resolveRequestPermissionIntent(controller, writePermissionsLegacy)
                 if (intent == null) {
                     if (cont.isActive) {
-                        cont.resume(granted)
+                        cont.resume(false)
                     }
+                } else {
+                    lateinit var launcher: ActivityResultLauncher<Intent>
+                    launcher = activity.activityResultRegistry.register(
+                        launcherKey,
+                        ActivityResultContracts.StartActivityForResult()
+                    ) { _ ->
+                        runCatching { launcher.unregister() }
+                        activity.lifecycleScope.launch {
+                            val granted = runCatching { hasWritePermission() }.getOrDefault(false)
+                            if (cont.isActive) {
+                                cont.resume(granted)
+                            }
+                        }
+                    }
+                    launcher.launch(intent)
+                    cont.invokeOnCancellation { runCatching { launcher.unregister() } }
                 }
             }
-            launcher.launch(intent)
-            cont.invokeOnCancellation { runCatching { launcher.unregister() } }
         }
 }
 
