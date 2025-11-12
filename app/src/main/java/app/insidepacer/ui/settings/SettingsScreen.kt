@@ -94,7 +94,8 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(title = { Text("Settings") })
-        }
+        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         val navigationPadding = WindowInsets.navigationBars.asPaddingValues()
         val startPadding = max(
