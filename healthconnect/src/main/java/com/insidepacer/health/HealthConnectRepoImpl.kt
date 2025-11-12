@@ -142,7 +142,7 @@ private fun buildExerciseRecord(
         segments = emptyList(),
         laps = emptyList(),
         exerciseRoute = null,
-        metadata = Metadata.EMPTY,
+        metadata = Metadata(),
     )
 }
 
