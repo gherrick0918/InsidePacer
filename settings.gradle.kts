@@ -1,8 +1,17 @@
-pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }
+pluginManagement { 
+    repositories { 
+        gradlePluginPortal()
+        maven { url = uri("https://maven.google.com") }
+        mavenCentral() 
+    } 
+}
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories { google(); mavenCentral() }
+    repositories { 
+        maven { url = uri("https://maven.google.com") }
+        mavenCentral() 
+    }
 }
 
 rootProject.name = "InsidePacer"
