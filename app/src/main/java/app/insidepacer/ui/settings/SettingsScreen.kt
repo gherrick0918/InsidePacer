@@ -49,6 +49,7 @@ import com.insidepacer.health.HcAvailability
 import com.insidepacer.health.HealthConnectRepo
 import com.insidepacer.health.HealthConnectRepoImpl
 import kotlinx.coroutines.launch
+import kotlin.math.max
 
 @Composable
 fun SettingsScreen(
@@ -90,20 +91,29 @@ fun SettingsScreen(
             CenterAlignedTopAppBar(title = { Text("Settings") })
         }
     ) { innerPadding ->
-        val systemPadding = WindowInsets.navigationBars.asPaddingValues()
-        val combinedPadding = PaddingValues(
-            start = innerPadding.calculateStartPadding(layoutDirection) +
-                systemPadding.calculateStartPadding(layoutDirection),
-            top = innerPadding.calculateTopPadding() + systemPadding.calculateTopPadding(),
-            end = innerPadding.calculateEndPadding(layoutDirection) +
-                systemPadding.calculateEndPadding(layoutDirection),
-            bottom = innerPadding.calculateBottomPadding() +
-                systemPadding.calculateBottomPadding(),
-        )
+        val navigationPadding = WindowInsets.navigationBars.asPaddingValues()
+        val startPadding = max(
+            innerPadding.calculateStartPadding(layoutDirection).value,
+            navigationPadding.calculateStartPadding(layoutDirection).value
+        ).dp
+        val endPadding = max(
+            innerPadding.calculateEndPadding(layoutDirection).value,
+            navigationPadding.calculateEndPadding(layoutDirection).value
+        ).dp
+        val bottomPadding = max(
+            innerPadding.calculateBottomPadding().value,
+            navigationPadding.calculateBottomPadding().value
+        ).dp
+        val topPadding = (innerPadding.calculateTopPadding() - 12.dp).coerceAtLeast(0.dp)
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = combinedPadding,
+            contentPadding = PaddingValues(
+                start = startPadding,
+                top = topPadding,
+                end = endPadding,
+                bottom = bottomPadding,
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (BackupFeatureConfig.enabled) {
