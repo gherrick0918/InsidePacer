@@ -75,7 +75,7 @@ class SessionService : Service() {
     private var lastUiBits: SessionNotifications.SessionUiBits? = null
     private var inForeground = false
     private val healthConnectRepo: HealthConnectRepo by lazy { HealthConnectRepoImpl() }
-    private val mainExecutor by lazy { ContextCompat.getMainExecutor(this) }
+    private val mainThreadExecutor by lazy { ContextCompat.getMainExecutor(this) }
 
     private data class StartRequest(val intent: Intent, val startId: Int)
 
@@ -542,7 +542,7 @@ class SessionService : Service() {
 
     private fun showHealthConnectFailure(error: Throwable) {
         val message = error.message?.takeIf { it.isNotBlank() } ?: error::class.java.simpleName
-        mainExecutor.execute {
+        mainThreadExecutor.execute {
             Toast.makeText(
                 applicationContext,
                 getString(R.string.health_connect_write_failure, message),
