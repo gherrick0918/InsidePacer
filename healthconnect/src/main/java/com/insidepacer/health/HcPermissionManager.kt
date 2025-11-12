@@ -30,12 +30,14 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         val granted = client.permissionController.getGrantedPermissions()
         val grantedTokens = granted.mapNotNull(::permissionTokenAny).toSet()
         if (grantedTokens.isNotEmpty()) {
-            return writePermissionTokens.all(grantedTokens::contains)
+            return writePermissionsModern.all(grantedTokens::contains) ||
+                writePermissionsLegacy.all(grantedTokens::contains)
         }
 
         val grantedStrings = granted.filterIsInstance<String>()
         if (grantedStrings.isNotEmpty()) {
-            return (writePermissionsModern + writePermissionsLegacy).all(grantedStrings::contains)
+            return writePermissionsModern.all(grantedStrings::contains) ||
+                writePermissionsLegacy.all(grantedStrings::contains)
         }
 
         val grantedModern = granted.filterIsInstance<HealthPermission>()
@@ -65,9 +67,10 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                         } else {
                             val grantedList = grantedPermissions.toList()
                             if (grantedList.isNotEmpty()) {
-                                writePermissionTokens.all { grantedList.contains(it) }
+                                writePermissionsModern.all { grantedList.contains(it) } ||
+                                    writePermissionsLegacy.all { grantedList.contains(it) }
                             } else {
-                                false
+                                runCatching { hasWritePermission() }.getOrDefault(false)
                             }
                         }
                         if (cont.isActive) {
