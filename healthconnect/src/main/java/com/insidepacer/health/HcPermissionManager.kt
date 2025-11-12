@@ -37,11 +37,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                 ) { grantedPermissions ->
                     runCatching { launcher.unregister() }
                     activity.lifecycleScope.launch {
-                        val granted = if (grantedPermissions == null) {
-                            runCatching { hasWritePermission() }.getOrDefault(false)
-                        } else {
-                            grantedPermissions.containsAll(writePermissions)
-                        }
+                        val granted = grantedPermissions.containsAll(writePermissions)
                         if (cont.isActive) {
                             cont.resume(granted)
                         }
