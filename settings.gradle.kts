@@ -1,9 +1,20 @@
 pluginManagement { 
     repositories { 
+        maven { url = uri("https://dl.google.com/dl/android/maven2/") }
+        google()
         gradlePluginPortal()
-        maven { url = uri("https://maven.google.com") }
         mavenCentral() 
-    } 
+    }
+    resolutionStrategy {
+        eachPlugin {
+            when (requested.id.id) {
+                "com.android.application", 
+                "com.android.library" -> {
+                    useModule("com.android.tools.build:gradle:${requested.version}")
+                }
+            }
+        }
+    }
 }
 
 dependencyResolutionManagement {
