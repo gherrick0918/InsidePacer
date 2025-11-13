@@ -88,10 +88,10 @@ internal class HealthConnectSettingsViewModel(
                 return@launch
             }
 
-            healthConnectRepo.requestWritePermission(activity)
+            val granted = healthConnectRepo.requestWritePermission(activity)
             refreshStatusInternal()
-            // Check the actual permission state after refresh
-            if (!_uiState.value.permissionGranted) {
+            // Show message based on the actual result from the permission request
+            if (!granted) {
                 emitMessage("Health Connect permission was not granted.")
             }
         }
@@ -116,10 +116,10 @@ internal class HealthConnectSettingsViewModel(
                 refreshStatusInternal()
                 return@launch
             }
-            healthConnectRepo.requestWritePermission(activity)
+            val granted = healthConnectRepo.requestWritePermission(activity)
             refreshStatusInternal()
-            // Check the actual permission state after refresh
-            if (!_uiState.value.permissionGranted) {
+            // Show message based on the actual result from the permission request
+            if (!granted) {
                 emitMessage("Health Connect permission was not granted.")
             }
         }
