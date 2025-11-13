@@ -82,7 +82,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         return false
     }
 
-    private suspend fun hasWritePermissionWithRetry(maxAttempts: Int = 5, delayMs: Long = 500): Boolean {
+    private suspend fun hasWritePermissionWithRetry(maxAttempts: Int = 10, delayMs: Long = 1000): Boolean {
         repeat(maxAttempts) { attempt ->
             val hasPermission = runCatching { hasWritePermission() }.getOrDefault(false)
             if (hasPermission) {
