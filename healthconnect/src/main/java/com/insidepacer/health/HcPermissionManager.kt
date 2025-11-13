@@ -1,6 +1,7 @@
 package com.insidepacer.health
 
 import android.content.Intent
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
@@ -99,6 +100,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         suspendCancellableCoroutine { cont ->
             // First check if permission is already granted to avoid unnecessary dialog
             val alreadyGranted = runCatching { hasWritePermission() }.getOrDefault(false)
+            Log.d(TAG, "requestWritePermission: alreadyGranted=$alreadyGranted")
             if (alreadyGranted) {
                 if (cont.isActive) {
                     cont.resume(true)
@@ -109,12 +111,14 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
             val controller = client.permissionController
             val launcherKey = "hc-permission-${System.identityHashCode(this)}-${System.nanoTime()}"
             val contract = resolveRequestPermissionContract(controller)
+            Log.d(TAG, "requestWritePermission: contract=$contract")
             if (contract != null) {
                 lateinit var launcher: ActivityResultLauncher<Set<String>>
                 launcher = activity.activityResultRegistry.register(
                     launcherKey,
                     contract
                 ) { grantedPermissions: Set<String>? ->
+                    Log.d(TAG, "Permission dialog callback: grantedPermissions=$grantedPermissions")
                     runCatching { launcher.unregister() }
                     activity.lifecycleScope.launch {
                         // Always check actual permission state after callback, as the returned
@@ -122,6 +126,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                         // Use retry mechanism to handle cases where permission updates are delayed,
                         // especially important on emulators where updates may be slower.
                         val granted = hasWritePermissionWithRetry()
+                        Log.d(TAG, "Permission check after retry: granted=$granted")
                         if (cont.isActive) {
                             cont.resume(granted)
                         }
@@ -129,9 +134,11 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                 }
                 // Wrap launcher.launch() in try-catch to handle exceptions that could occur
                 // when launching the permission dialog, especially on emulators
-                val launched = runCatching { 
+                val launchResult = runCatching { 
                     launcher.launch(writePermissionsAll)
-                }.isSuccess
+                }
+                val launched = launchResult.isSuccess
+                Log.d(TAG, "Launcher.launch() result: launched=$launched, exception=${launchResult.exceptionOrNull()}")
                 if (!launched) {
                     // If launch failed, clean up and return false
                     runCatching { launcher.unregister() }
@@ -144,6 +151,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
             } else {
                 val intent = resolveRequestPermissionIntent(controller, writePermissionsModern)
                     ?: resolveRequestPermissionIntent(controller, writePermissionsLegacy)
+                Log.d(TAG, "requestWritePermission: intent=$intent")
                 if (intent == null) {
                     if (cont.isActive) {
                         cont.resume(false)
@@ -154,11 +162,13 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                         launcherKey,
                         ActivityResultContracts.StartActivityForResult()
                     ) { _ ->
+                        Log.d(TAG, "Permission intent callback received")
                         runCatching { launcher.unregister() }
                         activity.lifecycleScope.launch {
                             // Use retry mechanism to handle cases where permission updates are delayed,
                             // especially important on emulators where updates may be slower.
                             val granted = hasWritePermissionWithRetry()
+                            Log.d(TAG, "Permission check after retry (intent path): granted=$granted")
                             if (cont.isActive) {
                                 cont.resume(granted)
                             }
@@ -166,9 +176,11 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                     }
                     // Wrap launcher.launch() in try-catch to handle exceptions that could occur
                     // when launching the permission dialog, especially on emulators
-                    val launched = runCatching {
+                    val launchResult = runCatching {
                         launcher.launch(intent)
-                    }.isSuccess
+                    }
+                    val launched = launchResult.isSuccess
+                    Log.d(TAG, "Launcher.launch(intent) result: launched=$launched, exception=${launchResult.exceptionOrNull()}")
                     if (!launched) {
                         // If launch failed, clean up and return false
                         runCatching { launcher.unregister() }
@@ -249,6 +261,7 @@ private fun permissionTokenReflective(permission: Any): String? {
 }
 
 private const val LEGACY_WRITE_PERMISSION = "android.permission.health.WRITE_EXERCISE"
+private const val TAG = "HcPermissionManager"
 
 private val METHOD_NAMES = listOf(
     "getPermission",
