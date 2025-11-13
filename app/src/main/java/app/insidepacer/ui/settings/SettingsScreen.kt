@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Arrangement
+import app.insidepacer.backup.ui.ActivityTracker
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -63,7 +64,8 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val layoutDirection = LocalLayoutDirection.current
-    val activity = context as? ComponentActivity
+    // Use ActivityTracker to get the current activity instead of unsafe cast from context
+    val activity = ActivityTracker.currentActivity() as? ComponentActivity
     val repo = remember { SettingsRepo(context) }
     val scope = rememberCoroutineScope()
 
