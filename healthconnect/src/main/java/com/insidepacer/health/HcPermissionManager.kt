@@ -64,14 +64,18 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
             }
         }
 
-        // Fallback 3: Check if any granted permission contains our required permission strings
-        // This handles cases where permissions might be returned in different formats
+        // Fallback 3: Check if any granted permission equals our required permission strings
+        // This handles cases where permissions might be returned as objects with toString()
         val grantedAsStrings = granted.map { it.toString() }.toSet()
         if (grantedAsStrings.isNotEmpty()) {
-            for (requiredPerm in writePermissionsModern + writePermissionsLegacy) {
-                if (grantedAsStrings.any { it.contains(requiredPerm, ignoreCase = true) }) {
-                    return true
-                }
+            val hasModern = writePermissionsModern.all { requiredPerm ->
+                grantedAsStrings.any { it.equals(requiredPerm, ignoreCase = true) }
+            }
+            val hasLegacy = writePermissionsLegacy.all { requiredPerm ->
+                grantedAsStrings.any { it.equals(requiredPerm, ignoreCase = true) }
+            }
+            if (hasModern || hasLegacy) {
+                return true
             }
         }
 
