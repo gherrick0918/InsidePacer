@@ -64,6 +64,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val layoutDirection = LocalLayoutDirection.current
+    // Use ActivityTracker to get the current activity instead of unsafe cast from context
     val activity = ActivityTracker.currentActivity() as? ComponentActivity
     val repo = remember { SettingsRepo(context) }
     val scope = rememberCoroutineScope()
