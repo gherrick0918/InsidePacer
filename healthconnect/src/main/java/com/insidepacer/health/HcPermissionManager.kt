@@ -10,6 +10,7 @@ import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -59,6 +60,9 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                 ) { grantedPermissions: Set<String>? ->
                     runCatching { launcher.unregister() }
                     activity.lifecycleScope.launch {
+                        // Add a small delay to allow the system to fully propagate permission changes
+                        // This is especially important on emulators where permission updates may be slower
+                        delay(300)
                         // Always check actual permission state after callback, as the returned
                         // grantedPermissions set may not accurately reflect the current state
                         val granted = runCatching { hasWritePermission() }.getOrDefault(false)
@@ -84,6 +88,9 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                     ) { _ ->
                         runCatching { launcher.unregister() }
                         activity.lifecycleScope.launch {
+                            // Add a small delay to allow the system to fully propagate permission changes
+                            // This is especially important on emulators where permission updates may be slower
+                            delay(300)
                             val granted = runCatching { hasWritePermission() }.getOrDefault(false)
                             if (cont.isActive) {
                                 cont.resume(granted)
