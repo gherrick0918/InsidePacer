@@ -97,6 +97,15 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
 
     suspend fun requestWritePermission(activity: ComponentActivity): Boolean =
         suspendCancellableCoroutine { cont ->
+            // First check if permission is already granted to avoid unnecessary dialog
+            val alreadyGranted = runCatching { hasWritePermission() }.getOrDefault(false)
+            if (alreadyGranted) {
+                if (cont.isActive) {
+                    cont.resume(true)
+                }
+                return@suspendCancellableCoroutine
+            }
+            
             val controller = client.permissionController
             val launcherKey = "hc-permission-${System.identityHashCode(this)}-${System.nanoTime()}"
             val contract = resolveRequestPermissionContract(controller)
@@ -118,8 +127,20 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                         }
                     }
                 }
-                launcher.launch(writePermissionsAll)
-                cont.invokeOnCancellation { runCatching { launcher.unregister() } }
+                // Wrap launcher.launch() in try-catch to handle exceptions that could occur
+                // when launching the permission dialog, especially on emulators
+                val launched = runCatching { 
+                    launcher.launch(writePermissionsAll)
+                }.isSuccess
+                if (!launched) {
+                    // If launch failed, clean up and return false
+                    runCatching { launcher.unregister() }
+                    if (cont.isActive) {
+                        cont.resume(false)
+                    }
+                } else {
+                    cont.invokeOnCancellation { runCatching { launcher.unregister() } }
+                }
             } else {
                 val intent = resolveRequestPermissionIntent(controller, writePermissionsModern)
                     ?: resolveRequestPermissionIntent(controller, writePermissionsLegacy)
@@ -143,8 +164,20 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                             }
                         }
                     }
-                    launcher.launch(intent)
-                    cont.invokeOnCancellation { runCatching { launcher.unregister() } }
+                    // Wrap launcher.launch() in try-catch to handle exceptions that could occur
+                    // when launching the permission dialog, especially on emulators
+                    val launched = runCatching {
+                        launcher.launch(intent)
+                    }.isSuccess
+                    if (!launched) {
+                        // If launch failed, clean up and return false
+                        runCatching { launcher.unregister() }
+                        if (cont.isActive) {
+                            cont.resume(false)
+                        }
+                    } else {
+                        cont.invokeOnCancellation { runCatching { launcher.unregister() } }
+                    }
                 }
             }
         }
