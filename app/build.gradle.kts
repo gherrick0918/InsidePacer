@@ -43,14 +43,14 @@ android {
 dependencies {
     implementation(project(":healthconnect"))
 
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.material3)
-    val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
+    val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.material3)
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.foundation:foundation-layout-android:1.6.7")
+    implementation("androidx.compose.foundation:foundation-layout-android")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.9.3")
