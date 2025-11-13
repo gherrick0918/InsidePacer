@@ -10,6 +10,7 @@ import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -46,6 +47,19 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         return false
     }
 
+    private suspend fun hasWritePermissionWithRetry(maxAttempts: Int = 3, delayMs: Long = 300): Boolean {
+        repeat(maxAttempts) { attempt ->
+            val hasPermission = runCatching { hasWritePermission() }.getOrDefault(false)
+            if (hasPermission) {
+                return true
+            }
+            if (attempt < maxAttempts - 1) {
+                delay(delayMs)
+            }
+        }
+        return false
+    }
+
     suspend fun requestWritePermission(activity: ComponentActivity): Boolean =
         suspendCancellableCoroutine { cont ->
             val controller = client.permissionController
@@ -60,8 +74,10 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                     runCatching { launcher.unregister() }
                     activity.lifecycleScope.launch {
                         // Always check actual permission state after callback, as the returned
-                        // grantedPermissions set may not accurately reflect the current state
-                        val granted = runCatching { hasWritePermission() }.getOrDefault(false)
+                        // grantedPermissions set may not accurately reflect the current state.
+                        // Use retry mechanism to handle cases where permission updates are delayed,
+                        // especially important on emulators where updates may be slower.
+                        val granted = hasWritePermissionWithRetry()
                         if (cont.isActive) {
                             cont.resume(granted)
                         }
@@ -84,7 +100,9 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                     ) { _ ->
                         runCatching { launcher.unregister() }
                         activity.lifecycleScope.launch {
-                            val granted = runCatching { hasWritePermission() }.getOrDefault(false)
+                            // Use retry mechanism to handle cases where permission updates are delayed,
+                            // especially important on emulators where updates may be slower.
+                            val granted = hasWritePermissionWithRetry()
                             if (cont.isActive) {
                                 cont.resume(granted)
                             }
@@ -175,3 +193,4 @@ private val FIELD_NAMES = listOf(
     "permission",
     "permissionString",
 )
+
