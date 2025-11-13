@@ -16,38 +16,73 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 internal class HcPermissionManager(private val client: HealthConnectClient) {
-    private val writePermissionsModern: Set<String> = setOf(
-        HealthPermission.getWritePermission(ExerciseSessionRecord::class)
-    )
+    private val writePermissionsModern: Set<String> by lazy {
+        val modernPermission = HealthPermission.getWritePermission(ExerciseSessionRecord::class)
+        // Ensure we store the string representation, handling both String and HealthPermission object cases
+        val permissionString = when (modernPermission) {
+            is String -> modernPermission
+            else -> permissionTokenAny(modernPermission) ?: modernPermission.toString()
+        }
+        setOf(permissionString)
+    }
     private val writePermissionsLegacy: Set<String> = setOf(
         LEGACY_WRITE_PERMISSION
     )
-    private val writePermissionsAll: Set<String> = writePermissionsModern + writePermissionsLegacy
+    private val writePermissionsAll: Set<String> by lazy { writePermissionsModern + writePermissionsLegacy }
 
     suspend fun hasWritePermission(): Boolean {
         val granted = client.permissionController.getGrantedPermissions()
+        
+        // Try extracting tokens from all granted permissions (most comprehensive approach)
         val grantedTokens = granted.mapNotNull(::permissionTokenAny).toSet()
         if (grantedTokens.isNotEmpty()) {
-            return writePermissionsModern.all(grantedTokens::contains) ||
-                writePermissionsLegacy.all(grantedTokens::contains)
+            val hasModern = writePermissionsModern.all(grantedTokens::contains)
+            val hasLegacy = writePermissionsLegacy.all(grantedTokens::contains)
+            if (hasModern || hasLegacy) {
+                return true
+            }
         }
 
+        // Fallback 1: Try treating granted permissions as Strings directly
         val grantedStrings = granted.filterIsInstance<String>()
         if (grantedStrings.isNotEmpty()) {
-            return writePermissionsModern.all(grantedStrings::contains) ||
-                writePermissionsLegacy.all(grantedStrings::contains)
+            val hasModern = writePermissionsModern.all(grantedStrings::contains)
+            val hasLegacy = writePermissionsLegacy.all(grantedStrings::contains)
+            if (hasModern || hasLegacy) {
+                return true
+            }
         }
 
+        // Fallback 2: Try treating them as HealthPermission objects and extract tokens
         val grantedModern = granted.filterIsInstance<HealthPermission>()
         if (grantedModern.isNotEmpty()) {
             val grantedModernTokens = grantedModern.mapNotNull(::permissionTokenModern).toSet()
-            return writePermissionsModern.all(grantedModernTokens::contains)
+            val hasModern = writePermissionsModern.all(grantedModernTokens::contains)
+            val hasLegacy = writePermissionsLegacy.all(grantedModernTokens::contains)
+            if (hasModern || hasLegacy) {
+                return true
+            }
+        }
+
+        // Fallback 3: Check if any granted permission equals our required permission strings
+        // This handles cases where permissions might be returned as objects with toString()
+        val grantedAsStrings = granted.map { it.toString() }.toSet()
+        if (grantedAsStrings.isNotEmpty()) {
+            val hasModern = writePermissionsModern.all { requiredPerm ->
+                grantedAsStrings.any { it.equals(requiredPerm, ignoreCase = true) }
+            }
+            val hasLegacy = writePermissionsLegacy.all { requiredPerm ->
+                grantedAsStrings.any { it.equals(requiredPerm, ignoreCase = true) }
+            }
+            if (hasModern || hasLegacy) {
+                return true
+            }
         }
 
         return false
     }
 
-    private suspend fun hasWritePermissionWithRetry(maxAttempts: Int = 3, delayMs: Long = 300): Boolean {
+    private suspend fun hasWritePermissionWithRetry(maxAttempts: Int = 5, delayMs: Long = 500): Boolean {
         repeat(maxAttempts) { attempt ->
             val hasPermission = runCatching { hasWritePermission() }.getOrDefault(false)
             if (hasPermission) {
