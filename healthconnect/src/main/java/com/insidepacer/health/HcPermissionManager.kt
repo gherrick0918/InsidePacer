@@ -99,14 +99,14 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         return false
     }
 
-    suspend fun requestWritePermission(activity: ComponentActivity): Boolean {
+    suspend fun requestWritePermission(activity: ComponentActivity, isRetryAfterOnboarding: Boolean = false): Boolean {
         // First check if permission is already granted to avoid unnecessary dialog
         val alreadyGranted = try {
             hasWritePermission()
         } catch (e: Exception) {
             false
         }
-        Log.d(TAG, "requestWritePermission: alreadyGranted=$alreadyGranted")
+        Log.d(TAG, "requestWritePermission: alreadyGranted=$alreadyGranted, isRetryAfterOnboarding=$isRetryAfterOnboarding")
         if (alreadyGranted) {
             return true
         }
@@ -135,8 +135,23 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                         // especially important on emulators where updates may be slower.
                         val granted = hasWritePermissionWithRetry()
                         Log.d(TAG, "Permission check after retry: granted=$granted")
-                        if (cont.isActive) {
-                            cont.resume(granted)
+                        
+                        // If permissions are still not granted and this is not already a retry,
+                        // the user likely completed Health Connect onboarding but didn't grant
+                        // permissions yet. Retry the permission request automatically.
+                        if (!granted && !isRetryAfterOnboarding && (grantedPermissions == null || grantedPermissions.isEmpty())) {
+                            Log.d(TAG, "Detected potential onboarding flow completion without permission grant. Retrying permission request...")
+                            // Add a delay to allow Health Connect to fully complete onboarding
+                            delay(1500)
+                            val retryGranted = requestWritePermission(activity, isRetryAfterOnboarding = true)
+                            Log.d(TAG, "Permission retry result: granted=$retryGranted")
+                            if (cont.isActive) {
+                                cont.resume(retryGranted)
+                            }
+                        } else {
+                            if (cont.isActive) {
+                                cont.resume(granted)
+                            }
                         }
                     }
                 }
@@ -178,8 +193,23 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                                 // Check if permission was granted after returning from settings
                                 val granted = hasWritePermissionWithRetry()
                                 Log.d(TAG, "Permission check after settings: granted=$granted")
-                                if (cont.isActive) {
-                                    cont.resume(granted)
+                                
+                                // If permissions are still not granted and this is not already a retry,
+                                // the user likely completed Health Connect onboarding but didn't grant
+                                // permissions yet. Retry the permission request automatically.
+                                if (!granted && !isRetryAfterOnboarding) {
+                                    Log.d(TAG, "Detected potential onboarding flow completion without permission grant (settings path). Retrying permission request...")
+                                    // Add a delay to allow Health Connect to fully complete onboarding
+                                    delay(1500)
+                                    val retryGranted = requestWritePermission(activity, isRetryAfterOnboarding = true)
+                                    Log.d(TAG, "Permission retry result (settings path): granted=$retryGranted")
+                                    if (cont.isActive) {
+                                        cont.resume(retryGranted)
+                                    }
+                                } else {
+                                    if (cont.isActive) {
+                                        cont.resume(granted)
+                                    }
                                 }
                             }
                         }
@@ -216,8 +246,23 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                             // especially important on emulators where updates may be slower.
                             val granted = hasWritePermissionWithRetry()
                             Log.d(TAG, "Permission check after retry (intent path): granted=$granted")
-                            if (cont.isActive) {
-                                cont.resume(granted)
+                            
+                            // If permissions are still not granted and this is not already a retry,
+                            // the user likely completed Health Connect onboarding but didn't grant
+                            // permissions yet. Retry the permission request automatically.
+                            if (!granted && !isRetryAfterOnboarding) {
+                                Log.d(TAG, "Detected potential onboarding flow completion without permission grant (intent path). Retrying permission request...")
+                                // Add a delay to allow Health Connect to fully complete onboarding
+                                delay(1500)
+                                val retryGranted = requestWritePermission(activity, isRetryAfterOnboarding = true)
+                                Log.d(TAG, "Permission retry result (intent path): granted=$retryGranted")
+                                if (cont.isActive) {
+                                    cont.resume(retryGranted)
+                                }
+                            } else {
+                                if (cont.isActive) {
+                                    cont.resume(granted)
+                                }
                             }
                         }
                     }
