@@ -96,17 +96,19 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         return false
     }
 
-    suspend fun requestWritePermission(activity: ComponentActivity): Boolean =
-        suspendCancellableCoroutine { cont ->
-            // First check if permission is already granted to avoid unnecessary dialog
-            val alreadyGranted = runCatching { hasWritePermission() }.getOrDefault(false)
-            Log.d(TAG, "requestWritePermission: alreadyGranted=$alreadyGranted")
-            if (alreadyGranted) {
-                if (cont.isActive) {
-                    cont.resume(true)
-                }
-                return@suspendCancellableCoroutine
-            }
+    suspend fun requestWritePermission(activity: ComponentActivity): Boolean {
+        // First check if permission is already granted to avoid unnecessary dialog
+        val alreadyGranted = try {
+            hasWritePermission()
+        } catch (e: Exception) {
+            false
+        }
+        Log.d(TAG, "requestWritePermission: alreadyGranted=$alreadyGranted")
+        if (alreadyGranted) {
+            return true
+        }
+        
+        return suspendCancellableCoroutine { cont ->
             
             val controller = client.permissionController
             val launcherKey = "hc-permission-${System.identityHashCode(this)}-${System.nanoTime()}"
@@ -193,6 +195,7 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                 }
             }
         }
+    }
 }
 
 @Suppress("UNCHECKED_CAST")
