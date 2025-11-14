@@ -92,7 +92,13 @@ internal class HealthConnectSettingsViewModel(
             refreshStatusInternal()
             // Show message based on the actual result from the permission request
             if (!granted) {
-                emitMessage("Health Connect permission was not granted.")
+                // Check if permission dialog actually showed or if there was a technical issue
+                val stillInstalled = healthConnectRepo.availability(appContext) == HcAvailability.SUPPORTED_INSTALLED
+                if (stillInstalled) {
+                    emitMessage("Health Connect permission was not granted. Please allow permission in the dialog.")
+                } else {
+                    emitMessage("Unable to request Health Connect permission. Please ensure Health Connect is properly installed.")
+                }
             }
         }
     }
@@ -120,7 +126,13 @@ internal class HealthConnectSettingsViewModel(
             refreshStatusInternal()
             // Show message based on the actual result from the permission request
             if (!granted) {
-                emitMessage("Health Connect permission was not granted.")
+                // Check if permission dialog actually showed or if there was a technical issue
+                val stillInstalled = healthConnectRepo.availability(appContext) == HcAvailability.SUPPORTED_INSTALLED
+                if (stillInstalled) {
+                    emitMessage("Health Connect permission was not granted. Please allow permission in the dialog.")
+                } else {
+                    emitMessage("Unable to request Health Connect permission. Please ensure Health Connect is properly installed.")
+                }
             }
         }
     }
