@@ -1,6 +1,9 @@
 package com.insidepacer.health
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
@@ -155,8 +158,47 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                     ?: resolveRequestPermissionIntent(controller, writePermissionsLegacy)
                 Log.d(TAG, "requestWritePermission: intent=$intent")
                 if (intent == null) {
-                    if (cont.isActive) {
-                        cont.resume(false)
+                    // Neither contract nor intent methods are available
+                    // This could happen if Health Connect SDK version doesn't support these APIs
+                    // Try to open Health Connect app settings directly as a fallback
+                    Log.w(TAG, "Unable to create permission contract or intent. Trying fallback to Health Connect settings.")
+                    val fallbackIntent = createHealthConnectSettingsIntent(activity)
+                    if (fallbackIntent != null) {
+                        lateinit var launcher: ActivityResultLauncher<Intent>
+                        launcher = activity.activityResultRegistry.register(
+                            launcherKey,
+                            ActivityResultContracts.StartActivityForResult()
+                        ) { _ ->
+                            Log.d(TAG, "Health Connect settings callback received")
+                            runCatching { launcher.unregister() }
+                            activity.lifecycleScope.launch {
+                                // Check if permission was granted after returning from settings
+                                val granted = hasWritePermissionWithRetry()
+                                Log.d(TAG, "Permission check after settings: granted=$granted")
+                                if (cont.isActive) {
+                                    cont.resume(granted)
+                                }
+                            }
+                        }
+                        val launchResult = runCatching {
+                            launcher.launch(fallbackIntent)
+                        }
+                        val launched = launchResult.isSuccess
+                        Log.d(TAG, "Health Connect settings launch result: launched=$launched, exception=${launchResult.exceptionOrNull()}")
+                        if (!launched) {
+                            runCatching { launcher.unregister() }
+                            if (cont.isActive) {
+                                cont.resume(false)
+                            }
+                        } else {
+                            cont.invokeOnCancellation { runCatching { launcher.unregister() } }
+                        }
+                    } else {
+                        // Complete fallback failed too
+                        Log.e(TAG, "Unable to create any intent to request Health Connect permissions")
+                        if (cont.isActive) {
+                            cont.resume(false)
+                        }
                     }
                 } else {
                     lateinit var launcher: ActivityResultLauncher<Intent>
@@ -196,6 +238,18 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
             }
         }
     }
+
+    private fun createHealthConnectSettingsIntent(context: Context): Intent? {
+        return runCatching {
+            // Try to create an intent to open Health Connect app permissions screen
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$HEALTH_CONNECT_PACKAGE_NAME")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }.onFailure { e ->
+            Log.e(TAG, "Error creating Health Connect settings intent", e)
+        }.getOrNull()
+    }
 }
 
 @Suppress("UNCHECKED_CAST")
@@ -203,10 +257,26 @@ private fun resolveRequestPermissionContract(
     controller: PermissionController,
 ): ActivityResultContract<Set<String>, Set<String>>? {
     return runCatching {
+        // Log all available methods for debugging
+        val allMethods = controller::class.java.methods
+            .filter { it.name.contains("permission", ignoreCase = true) }
+            .map { "${it.name}(${it.parameterTypes.joinToString { p -> p.simpleName }})" }
+        Log.d(TAG, "Available permission methods: $allMethods")
+        
         val method = controller::class.java.methods.firstOrNull { method ->
             method.name == "createRequestPermissionActivityContract" && method.parameterTypes.isEmpty()
         }
-        method?.invoke(controller) as? ActivityResultContract<Set<String>, Set<String>>
+        Log.d(TAG, "Found createRequestPermissionActivityContract method: ${method != null}")
+        
+        if (method != null) {
+            val result = method.invoke(controller)
+            Log.d(TAG, "Contract invocation result: ${result?.javaClass?.name}")
+            result as? ActivityResultContract<Set<String>, Set<String>>
+        } else {
+            null
+        }
+    }.onFailure { e ->
+        Log.e(TAG, "Error resolving permission contract", e)
     }.getOrNull()
 }
 
@@ -218,7 +288,17 @@ private fun resolveRequestPermissionIntent(
         val method = controller::class.java.methods.firstOrNull { method ->
             method.name == "createRequestPermissionIntent" && method.parameterTypes.size == 1
         }
-        method?.invoke(controller, permissions) as? Intent
+        Log.d(TAG, "Found createRequestPermissionIntent method: ${method != null}")
+        
+        if (method != null) {
+            val result = method.invoke(controller, permissions)
+            Log.d(TAG, "Intent invocation result: ${result != null}, type: ${result?.javaClass?.name}")
+            result as? Intent
+        } else {
+            null
+        }
+    }.onFailure { e ->
+        Log.e(TAG, "Error resolving permission intent", e)
     }.getOrNull()
 }
 
