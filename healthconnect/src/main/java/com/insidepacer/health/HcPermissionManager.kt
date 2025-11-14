@@ -316,16 +316,32 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
 
     private fun tryOpenHealthConnectApp(context: Context): Boolean {
         return runCatching {
-            // Try to open Health Connect app directly using launch intent
+            // Try multiple approaches to open Health Connect, in order of preference
+            
+            // Approach 1: Use the official Health Connect settings action
+            // This is the recommended way to open Health Connect
+            val healthConnectIntent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            
+            // Check if this intent can be resolved
+            if (context.packageManager.resolveActivity(healthConnectIntent, 0) != null) {
+                context.startActivity(healthConnectIntent)
+                Log.d(TAG, "Successfully opened Health Connect via ACTION_HEALTH_CONNECT_SETTINGS")
+                return true
+            }
+            Log.d(TAG, "ACTION_HEALTH_CONNECT_SETTINGS not available, trying launch intent")
+            
+            // Approach 2: Try to open Health Connect app directly using launch intent
             val launchIntent = context.packageManager.getLaunchIntentForPackage(HEALTH_CONNECT_PACKAGE_NAME)
             if (launchIntent != null) {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(launchIntent)
-                Log.d(TAG, "Successfully opened Health Connect app")
+                Log.d(TAG, "Successfully opened Health Connect app via launch intent")
                 true
             } else {
                 Log.w(TAG, "Could not find launch intent for Health Connect")
-                // Fallback: Try to open app settings
+                // Approach 3: Fallback to app settings
                 val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = Uri.parse("package:$HEALTH_CONNECT_PACKAGE_NAME")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
