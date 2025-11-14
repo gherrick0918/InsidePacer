@@ -99,14 +99,14 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
         return false
     }
 
-    suspend fun requestWritePermission(activity: ComponentActivity, isRetryAfterOnboarding: Boolean = false): Boolean {
+    suspend fun requestWritePermission(activity: ComponentActivity): Boolean {
         // First check if permission is already granted to avoid unnecessary dialog
         val alreadyGranted = try {
             hasWritePermission()
         } catch (e: Exception) {
             false
         }
-        Log.d(TAG, "requestWritePermission: alreadyGranted=$alreadyGranted, isRetryAfterOnboarding=$isRetryAfterOnboarding")
+        Log.d(TAG, "requestWritePermission: alreadyGranted=$alreadyGranted")
         if (alreadyGranted) {
             return true
         }
@@ -141,31 +141,18 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                         // This can happen when Health Connect is not properly initialized.
                         // In this case, open Health Connect app directly so user can set it up.
                         if (!granted && (grantedPermissions == null || grantedPermissions.isEmpty())) {
-                            if (!isRetryAfterOnboarding) {
-                                Log.d(TAG, "Permission dialog returned empty result. Opening Health Connect app for setup...")
-                                // Try to open Health Connect app directly
-                                val opened = tryOpenHealthConnectApp(activity)
-                                if (opened) {
-                                    Log.d(TAG, "Health Connect app opened. Will retry permission request after delay.")
-                                    // Wait for user to complete Health Connect setup
-                                    delay(1500)
-                                    val retryGranted = requestWritePermission(activity, isRetryAfterOnboarding = true)
-                                    Log.d(TAG, "Permission retry result after opening Health Connect: granted=$retryGranted")
-                                    if (cont.isActive) {
-                                        cont.resume(retryGranted)
-                                    }
-                                } else {
-                                    Log.w(TAG, "Failed to open Health Connect app. Returning false.")
-                                    if (cont.isActive) {
-                                        cont.resume(false)
-                                    }
-                                }
+                            Log.d(TAG, "Permission dialog returned empty result. Opening Health Connect app for setup...")
+                            // Try to open Health Connect app directly so user can complete onboarding
+                            val opened = tryOpenHealthConnectApp(activity)
+                            if (opened) {
+                                Log.d(TAG, "Health Connect app opened. User should complete setup and try again.")
                             } else {
-                                // Already retried once, don't retry again
-                                Log.d(TAG, "Permission still not granted after retry. Giving up.")
-                                if (cont.isActive) {
-                                    cont.resume(false)
-                                }
+                                Log.w(TAG, "Failed to open Health Connect app.")
+                            }
+                            // Return false and let user complete Health Connect setup at their own pace.
+                            // They can click the grant button again when ready.
+                            if (cont.isActive) {
+                                cont.resume(false)
                             }
                         } else {
                             if (cont.isActive) {
@@ -214,20 +201,15 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                                 Log.d(TAG, "Permission check after settings: granted=$granted")
                                 
                                 // If dialog returned immediately without grant, open Health Connect app
-                                if (!granted && !isRetryAfterOnboarding) {
+                                if (!granted) {
                                     Log.d(TAG, "Settings returned without permission. Opening Health Connect app...")
                                     val opened = tryOpenHealthConnectApp(activity)
                                     if (opened) {
-                                        delay(1500)
-                                        val retryGranted = requestWritePermission(activity, isRetryAfterOnboarding = true)
-                                        Log.d(TAG, "Permission retry result (settings path): granted=$retryGranted")
-                                        if (cont.isActive) {
-                                            cont.resume(retryGranted)
-                                        }
-                                    } else {
-                                        if (cont.isActive) {
-                                            cont.resume(false)
-                                        }
+                                        Log.d(TAG, "Health Connect app opened. User should complete setup and try again.")
+                                    }
+                                    // Return false and let user complete setup at their own pace
+                                    if (cont.isActive) {
+                                        cont.resume(false)
                                     }
                                 } else {
                                     if (cont.isActive) {
@@ -271,20 +253,15 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
                             Log.d(TAG, "Permission check after retry (intent path): granted=$granted")
                             
                             // If dialog returned immediately without grant, open Health Connect app
-                            if (!granted && !isRetryAfterOnboarding) {
+                            if (!granted) {
                                 Log.d(TAG, "Intent returned without permission. Opening Health Connect app...")
                                 val opened = tryOpenHealthConnectApp(activity)
                                 if (opened) {
-                                    delay(1500)
-                                    val retryGranted = requestWritePermission(activity, isRetryAfterOnboarding = true)
-                                    Log.d(TAG, "Permission retry result (intent path): granted=$retryGranted")
-                                    if (cont.isActive) {
-                                        cont.resume(retryGranted)
-                                    }
-                                } else {
-                                    if (cont.isActive) {
-                                        cont.resume(false)
-                                    }
+                                    Log.d(TAG, "Health Connect app opened. User should complete setup and try again.")
+                                }
+                                // Return false and let user complete setup at their own pace
+                                if (cont.isActive) {
+                                    cont.resume(false)
                                 }
                             } else {
                                 if (cont.isActive) {
