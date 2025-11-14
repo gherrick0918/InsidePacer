@@ -115,7 +115,10 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
             
             val controller = client.permissionController
             val launcherKey = "hc-permission-${System.identityHashCode(this)}-${System.nanoTime()}"
-            val contract = resolveRequestPermissionContract(controller)
+            
+            // Try to use direct API first (for newer versions)
+            val contract = tryDirectPermissionContract(controller) 
+                ?: resolveRequestPermissionContract(controller)
             Log.d(TAG, "requestWritePermission: contract=$contract")
             if (contract != null) {
                 lateinit var launcher: ActivityResultLauncher<Set<String>>
@@ -250,6 +253,22 @@ internal class HcPermissionManager(private val client: HealthConnectClient) {
             Log.e(TAG, "Error creating Health Connect settings intent", e)
         }.getOrNull()
     }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun tryDirectPermissionContract(
+        controller: PermissionController,
+    ): ActivityResultContract<Set<String>, Set<String>>? {
+        return runCatching {
+            // Try calling the direct API method that should exist in newer versions
+            // This avoids reflection if the method is available at compile time
+            val method = PermissionController::class.java.getMethod("createRequestPermissionResultContract")
+            val result = method.invoke(controller)
+            Log.d(TAG, "Direct API call successful: ${result?.javaClass?.name}")
+            result as? ActivityResultContract<Set<String>, Set<String>>
+        }.onFailure { e ->
+            Log.d(TAG, "Direct API call failed (expected for older SDK versions): ${e.message}")
+        }.getOrNull()
+    }
 }
 
 @Suppress("UNCHECKED_CAST")
@@ -259,14 +278,30 @@ private fun resolveRequestPermissionContract(
     return runCatching {
         // Log all available methods for debugging
         val allMethods = controller::class.java.methods
-            .filter { it.name.contains("permission", ignoreCase = true) }
+            .filter { it.name.contains("permission", ignoreCase = true) || it.name.contains("Request", ignoreCase = true) }
             .map { "${it.name}(${it.parameterTypes.joinToString { p -> p.simpleName }})" }
         Log.d(TAG, "Available permission methods: $allMethods")
         
-        val method = controller::class.java.methods.firstOrNull { method ->
-            method.name == "createRequestPermissionActivityContract" && method.parameterTypes.isEmpty()
+        // Try multiple method names that have been used in different versions
+        val methodNames = listOf(
+            "createRequestPermissionResultContract",
+            "createRequestPermissionActivityContract"
+        )
+        
+        var method: java.lang.reflect.Method? = null
+        for (name in methodNames) {
+            method = controller::class.java.methods.firstOrNull { m ->
+                m.name == name && m.parameterTypes.isEmpty()
+            }
+            if (method != null) {
+                Log.d(TAG, "Found permission contract method: $name")
+                break
+            }
         }
-        Log.d(TAG, "Found createRequestPermissionActivityContract method: ${method != null}")
+        
+        if (method == null) {
+            Log.w(TAG, "No known permission contract method found")
+        }
         
         if (method != null) {
             val result = method.invoke(controller)
