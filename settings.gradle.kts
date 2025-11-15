@@ -1,12 +1,7 @@
 pluginManagement { 
     repositories { 
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
+        maven { url = uri("https://dl.google.com/dl/android/maven2/") }
+        google()
         mavenCentral()
         gradlePluginPortal()
     }
