@@ -93,7 +93,6 @@ class SessionService : Service() {
         settingsRepo = SettingsRepo(applicationContext)
         healthConnectSyncer = HealthConnectSessionSyncer(
             context = applicationContext,
-            settingsRepo = settingsRepo,
             healthConnectRepo = healthConnectRepo,
         ) { error ->
             showHealthConnectFailure(error)
