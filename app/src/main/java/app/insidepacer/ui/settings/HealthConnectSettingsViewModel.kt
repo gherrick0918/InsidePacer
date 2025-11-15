@@ -14,12 +14,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 internal data class HealthConnectUiState(
-    val enabled: Boolean = false,
     val availability: HcAvailability = HcAvailability.NOT_SUPPORTED,
     val permissionGranted: Boolean = false,
 )
@@ -42,14 +40,7 @@ internal class HealthConnectSettingsViewModel(
 
     init {
         viewModelScope.launch {
-            settingsRepo.healthConnectEnabled.collectLatest { enabled ->
-                _uiState.update { it.copy(enabled = enabled) }
-                if (enabled) {
-                    refreshStatusInternal()
-                } else {
-                    _uiState.update { state -> state.copy(permissionGranted = false) }
-                }
-            }
+            refreshStatusInternal()
         }
     }
 
@@ -58,49 +49,8 @@ internal class HealthConnectSettingsViewModel(
     }
 
     fun setEnabled(enabled: Boolean, activity: ComponentActivity?) {
-        viewModelScope.launch {
-            if (!enabled) {
-                settingsRepo.setHealthConnectEnabled(false)
-                _uiState.update { it.copy(permissionGranted = false) }
-                return@launch
-            }
-
-            val availability = healthConnectRepo.availability(appContext)
-            if (availability == HcAvailability.NOT_SUPPORTED) {
-                emitMessage("Health Connect is not supported on this device.")
-                settingsRepo.setHealthConnectEnabled(false)
-                _uiState.update { it.copy(enabled = false, availability = availability, permissionGranted = false) }
-                return@launch
-            }
-
-            settingsRepo.setHealthConnectEnabled(true)
-            _uiState.update { it.copy(availability = availability) }
-
-            if (availability != HcAvailability.SUPPORTED_INSTALLED) {
-                healthConnectRepo.ensureInstalled(appContext)
-                refreshStatusInternal()
-                return@launch
-            }
-
-            if (activity == null) {
-                emitMessage("Unable to request permissions without an activity context.")
-                refreshStatusInternal()
-                return@launch
-            }
-
-            val granted = healthConnectRepo.requestWritePermission(activity)
-            refreshStatusInternal()
-            // Show message based on the actual result from the permission request
-            if (!granted) {
-                // Check if permission dialog actually showed or if there was a technical issue
-                val stillInstalled = healthConnectRepo.availability(appContext) == HcAvailability.SUPPORTED_INSTALLED
-                if (stillInstalled) {
-                    emitMessage("Health Connect permission not granted. Please allow permission in the Health Connect app settings or dialog that was opened.")
-                } else {
-                    emitMessage("Unable to request Health Connect permission. Please ensure Health Connect is properly installed.")
-                }
-            }
-        }
+        // Deprecated: Health Connect is now always enabled if permission is granted
+        // Keeping this method for backward compatibility but it does nothing
     }
 
     fun ensureInstalled() {
@@ -140,9 +90,6 @@ internal class HealthConnectSettingsViewModel(
     suspend fun simulateTestWrite(): Result<Unit> {
         refreshStatusInternal()
         val state = uiState.value
-        if (!state.enabled) {
-            return Result.failure(IllegalStateException("Enable Health Connect first."))
-        }
         if (state.availability != HcAvailability.SUPPORTED_INSTALLED) {
             return Result.failure(IllegalStateException("Health Connect is not installed."))
         }

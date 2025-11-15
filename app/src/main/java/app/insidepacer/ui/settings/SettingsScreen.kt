@@ -159,9 +159,7 @@ fun SettingsScreen(
                 CardContainer {
                     IntegrationsCard(
                         state = healthConnectState,
-                        onToggleChanged = { enabled ->
-                            healthConnectViewModel.setEnabled(enabled, activity)
-                        },
+                        onToggleChanged = { },  // No-op, toggle removed from UI
                         onGrantPermission = {
                             if (healthConnectState.availability == HcAvailability.SUPPORTED_NOT_INSTALLED) {
                                 healthConnectViewModel.ensureInstalled()
@@ -284,14 +282,7 @@ private fun IntegrationsCard(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Integrations", style = MaterialTheme.typography.titleMedium)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Health Connect")
-            Switch(checked = state.enabled, onCheckedChange = onToggleChanged)
-        }
+        Text("Health Connect")
 
         val statusText = when (state.availability) {
             HcAvailability.SUPPORTED_INSTALLED -> if (state.permissionGranted) {
@@ -312,7 +303,7 @@ private fun IntegrationsCard(
             }
             Button(
                 onClick = onGrantPermission,
-                enabled = state.enabled && state.availability != HcAvailability.NOT_SUPPORTED &&
+                enabled = state.availability != HcAvailability.NOT_SUPPORTED &&
                     (!state.permissionGranted || state.availability == HcAvailability.SUPPORTED_NOT_INSTALLED)
             ) {
                 Text(buttonText)
