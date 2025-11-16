@@ -12,11 +12,9 @@ import app.insidepacer.di.Singleton
 import app.insidepacer.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 import app.insidepacer.backup.ui.ActivityTracker
-import app.insidepacer.data.SettingsRepo
 import com.insidepacer.health.HealthConnectRepo
 import com.insidepacer.health.HealthConnectRepoImpl
 import com.insidepacer.health.HcAvailability
-import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
@@ -35,21 +33,14 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         
-        // Request Health Connect permission on launch if enabled but not granted
+        // Request Health Connect permission on launch if not granted
         lifecycleScope.launch {
             requestHealthConnectPermissionIfNeeded()
         }
     }
     
     private suspend fun requestHealthConnectPermissionIfNeeded() {
-        val settingsRepo = SettingsRepo(this)
         val healthConnectRepo: HealthConnectRepo = HealthConnectRepoImpl()
-        
-        // Check if Health Connect is enabled in settings
-        val isEnabled = settingsRepo.healthConnectEnabled.first()
-        if (!isEnabled) {
-            return
-        }
         
         // Check if Health Connect is available and installed
         val availability = healthConnectRepo.availability(this)

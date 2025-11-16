@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.settingsDataStore
 import app.insidepacer.domain.SessionLog
 import com.insidepacer.health.HcAvailability
@@ -27,10 +26,9 @@ class HealthConnectSessionSyncerTest {
     }
 
     @Test
-    fun toggleOff_doesNotWrite() = runTest {
-        val settingsRepo = SettingsRepo(context)
+    fun withoutPermission_doesNotWrite() = runTest {
         val fakeRepo = FakeHealthConnectRepo()
-        val syncer = HealthConnectSessionSyncer(context, settingsRepo, fakeRepo)
+        val syncer = HealthConnectSessionSyncer(context, fakeRepo)
 
         syncer.onSessionLogged(createLog())
 
@@ -38,14 +36,12 @@ class HealthConnectSessionSyncerTest {
     }
 
     @Test
-    fun toggleOnWithoutPermission_doesNotWrite() = runTest {
-        val settingsRepo = SettingsRepo(context)
-        settingsRepo.setHealthConnectEnabled(true)
+    fun notInstalled_doesNotWrite() = runTest {
         val fakeRepo = FakeHealthConnectRepo().apply {
-            availability = HcAvailability.SUPPORTED_INSTALLED
+            availability = HcAvailability.SUPPORTED_NOT_INSTALLED
             hasPermission = false
         }
-        val syncer = HealthConnectSessionSyncer(context, settingsRepo, fakeRepo)
+        val syncer = HealthConnectSessionSyncer(context, fakeRepo)
 
         syncer.onSessionLogged(createLog())
 
@@ -53,14 +49,12 @@ class HealthConnectSessionSyncerTest {
     }
 
     @Test
-    fun toggleOnWithPermission_writesSession() = runTest {
-        val settingsRepo = SettingsRepo(context)
-        settingsRepo.setHealthConnectEnabled(true)
+    fun withPermission_writesSession() = runTest {
         val fakeRepo = FakeHealthConnectRepo().apply {
             availability = HcAvailability.SUPPORTED_INSTALLED
             hasPermission = true
         }
-        val syncer = HealthConnectSessionSyncer(context, settingsRepo, fakeRepo)
+        val syncer = HealthConnectSessionSyncer(context, fakeRepo)
 
         val log = createLog()
         syncer.onSessionLogged(log)
