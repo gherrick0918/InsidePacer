@@ -21,7 +21,7 @@ android {
 }
 
 dependencies {
-    implementation("androidx.health.connect:connect-client:1.1.0-alpha08")
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha10")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
