@@ -14,5 +14,13 @@ interface HealthConnectRepo {
         startTime: Instant,
         endTime: Instant,
         notes: String? = null,
+        title: String? = null,
+        distanceMeters: Double? = null,
+        speedSamples: List<SpeedSample>? = null,
     ): Result<Unit>
 }
+
+data class SpeedSample(
+    val time: Instant,
+    val speedMetersPerSecond: Double,
+)

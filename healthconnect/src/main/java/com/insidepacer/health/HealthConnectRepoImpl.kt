@@ -7,8 +7,12 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.units.Length
+import androidx.health.connect.client.units.Velocity
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -58,7 +62,10 @@ class HealthConnectRepoImpl : HealthConnectRepo {
         context: Context,
         startTime: Instant,
         endTime: Instant,
-        notes: String?
+        notes: String?,
+        title: String?,
+        distanceMeters: Double?,
+        speedSamples: List<SpeedSample>?,
     ): Result<Unit> {
         val availability = availability(context)
         if (availability != HcAvailability.SUPPORTED_INSTALLED) {
@@ -73,15 +80,38 @@ class HealthConnectRepoImpl : HealthConnectRepo {
         val zone = ZoneId.systemDefault()
         val startOffset = zone.rules.getOffset(startTime)
         val endOffset = zone.rules.getOffset(endTime)
-        val record = buildExerciseRecord(
+        val sessionRecord = buildExerciseRecord(
             startTime = startTime,
             startZoneOffset = startOffset,
             endTime = endTime,
             endZoneOffset = endOffset,
-            notes = notes
+            notes = notes,
+            title = title
         )
+        
+        // Build additional records to insert alongside the session
+        val records = mutableListOf<Any>(sessionRecord)
+        
+        // Add distance record if available
+        distanceMeters?.let { distance ->
+            val distanceRecord = buildDistanceRecord(
+                startTime = startTime,
+                startZoneOffset = startOffset,
+                endTime = endTime,
+                endZoneOffset = endOffset,
+                distanceMeters = distance
+            )
+            distanceRecord?.let { records.add(it) }
+        }
+        
+        // Add speed records if available
+        speedSamples?.let { samples ->
+            val speedRecords = buildSpeedRecords(samples, zone)
+            records.addAll(speedRecords)
+        }
+        
         return runCatching {
-            client.insertRecords(listOf(record))
+            client.insertRecords(records)
         }.map { Unit }
     }
 
@@ -130,6 +160,7 @@ private fun buildExerciseRecord(
     endTime: Instant,
     endZoneOffset: ZoneOffset?,
     notes: String?,
+    title: String?,
 ): ExerciseSessionRecord {
     buildExerciseRecordWithBuilder(
         startTime = startTime,
@@ -137,6 +168,7 @@ private fun buildExerciseRecord(
         endTime = endTime,
         endZoneOffset = endZoneOffset,
         notes = notes,
+        title = title,
     )?.let { return it }
 
     buildExerciseRecordWithConstructor(
@@ -145,6 +177,7 @@ private fun buildExerciseRecord(
         endTime = endTime,
         endZoneOffset = endZoneOffset,
         notes = notes,
+        title = title,
     )?.let { return it }
 
     error("Unable to create ExerciseSessionRecord instance")
@@ -159,6 +192,7 @@ private fun buildExerciseRecordWithBuilder(
     endTime: Instant,
     endZoneOffset: ZoneOffset?,
     notes: String?,
+    title: String?,
 ): ExerciseSessionRecord? {
     val builderClass = runCatching {
         Class.forName("androidx.health.connect.client.records.ExerciseSessionRecord\$Builder")
@@ -178,6 +212,7 @@ private fun buildExerciseRecordWithBuilder(
     invokeNullableMethod(builder, "setStartZoneOffset", startZoneOffset)
     invokeNullableMethod(builder, "setEndZoneOffset", endZoneOffset)
     invokeNullableMethod(builder, "setNotes", notes)
+    invokeNullableMethod(builder, "setTitle", title)
 
     return runCatching {
         builderClass.getMethod("build").invoke(builder) as ExerciseSessionRecord
@@ -191,6 +226,7 @@ private fun buildExerciseRecordWithConstructor(
     endTime: Instant,
     endZoneOffset: ZoneOffset?,
     notes: String?,
+    title: String?,
 ): ExerciseSessionRecord? {
     val recordClass = ExerciseSessionRecord::class.java
     val constructor = recordClass.declaredConstructors.maxByOrNull { it.parameterCount }
@@ -198,7 +234,7 @@ private fun buildExerciseRecordWithConstructor(
 
     val instantValues = ArrayDeque(listOf(startTime, endTime))
     val zoneOffsets = ArrayDeque(listOf(startZoneOffset, endZoneOffset))
-    val stringValues = ArrayDeque<String?>(listOf(null, notes, null))
+    val stringValues = ArrayDeque<String?>(listOf(title, notes, null))
     val listValues = ArrayDeque<List<*>>(listOf(emptyList<Any>(), emptyList<Any>()))
 
     val arguments = Array<Any?>(constructor.parameterCount) { null }
@@ -235,6 +271,84 @@ private fun invokeNullableMethod(target: Any, name: String, value: Any?) {
 }
 
 private fun <T> ArrayDeque<T>.removeFirstOrNull(): T? = if (isEmpty()) null else removeFirst()
+
+private fun buildDistanceRecord(
+    startTime: Instant,
+    startZoneOffset: ZoneOffset?,
+    endTime: Instant,
+    endZoneOffset: ZoneOffset?,
+    distanceMeters: Double,
+): DistanceRecord? {
+    return runCatching {
+        // Try using Builder pattern first (newer API)
+        val builderClass = Class.forName("androidx.health.connect.client.records.DistanceRecord\$Builder")
+        val constructor = builderClass.constructors.firstOrNull { it.parameterTypes.size == 4 }
+        
+        if (constructor != null) {
+            val builder = constructor.newInstance(
+                startTime,
+                startZoneOffset,
+                endTime,
+                endZoneOffset
+            )
+            invokeNullableMethod(builder, "setDistance", Length.meters(distanceMeters))
+            builderClass.getMethod("build").invoke(builder) as DistanceRecord
+        } else {
+            // Fallback: Try direct constructor
+            val distanceConstructor = DistanceRecord::class.java.declaredConstructors
+                .firstOrNull { it.parameterCount >= 5 }
+            distanceConstructor?.let {
+                it.isAccessible = true
+                it.newInstance(
+                    startTime,
+                    startZoneOffset,
+                    endTime,
+                    endZoneOffset,
+                    Length.meters(distanceMeters),
+                    Metadata()
+                ) as DistanceRecord
+            }
+        }
+    }.getOrNull()
+}
+
+private fun buildSpeedRecords(
+    samples: List<SpeedSample>,
+    zone: ZoneId,
+): List<SpeedRecord> {
+    return samples.mapNotNull { sample ->
+        runCatching {
+            val time = sample.time
+            val offset = zone.rules.getOffset(time)
+            
+            // Try using Builder pattern first (newer API)
+            val builderClass = Class.forName("androidx.health.connect.client.records.SpeedRecord\$Builder")
+            val constructor = builderClass.constructors.firstOrNull { it.parameterTypes.size == 3 }
+            
+            if (constructor != null) {
+                val builder = constructor.newInstance(
+                    time,
+                    offset,
+                    Velocity.metersPerSecond(sample.speedMetersPerSecond)
+                )
+                builderClass.getMethod("build").invoke(builder) as SpeedRecord
+            } else {
+                // Fallback: Try direct constructor
+                val speedConstructor = SpeedRecord::class.java.declaredConstructors
+                    .firstOrNull { it.parameterCount >= 4 }
+                speedConstructor?.let {
+                    it.isAccessible = true
+                    it.newInstance(
+                        time,
+                        offset,
+                        Velocity.metersPerSecond(sample.speedMetersPerSecond),
+                        Metadata()
+                    ) as SpeedRecord
+                }
+            }
+        }.getOrNull()
+    }
+}
 
 private class SdkAvailabilityStatus(
     val available: Int,
