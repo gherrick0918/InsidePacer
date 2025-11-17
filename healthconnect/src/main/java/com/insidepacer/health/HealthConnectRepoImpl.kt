@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Length
@@ -90,7 +91,7 @@ class HealthConnectRepoImpl : HealthConnectRepo {
         )
         
         // Build additional records to insert alongside the session
-        val records = mutableListOf<Any>(sessionRecord)
+        val records = mutableListOf<Record>(sessionRecord)
         
         // Add distance record if available
         distanceMeters?.let { distance ->
