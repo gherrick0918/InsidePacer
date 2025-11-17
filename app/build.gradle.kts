@@ -14,8 +14,8 @@ android {
         applicationId = "app.insidepacer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 45
-        versionName = "1.0.45"
+        versionCode = 46
+        versionName = "1.0.46"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
