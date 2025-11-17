@@ -117,18 +117,23 @@ class CuePlayer(
         }
     }
 
-    suspend fun countdownTick(secondsRemaining: Int, intervalMs: Long = 1000L) {
+    suspend fun countdownTick(secondsRemaining: Int, intervalMs: Long = 1000L, isSegmentChange: Boolean = false) {
         val allowTick = countdownPlanner.allowTick(secondsRemaining, voiceOn)
         val vibrate = allowTick && hapticsOn && vibrator?.hasVibrator() == true
         val playTone = allowTick && beepsOn
 
+        // Use chirp beeps for segment changes, tick beeps otherwise
+        val toneType = if (isSegmentChange) CHIRP_TONE_TYPE else TICK_TONE_TYPE
+        val toneDuration = if (isSegmentChange) CHIRP_DURATION_MS else TICK_DURATION_MS
+        val hapticDuration = if (isSegmentChange) HAPTIC_CHIRP_MS else HAPTIC_TICK_MS
+
         if (playTone) {
-            playToneCue(TICK_TONE_TYPE, TICK_DURATION_MS, HAPTIC_TICK_MS, vibrate)
+            playToneCue(toneType, toneDuration, hapticDuration, vibrate)
         } else if (vibrate) {
-            fireHaptic(HAPTIC_TICK_MS)
+            fireHaptic(hapticDuration)
         }
 
-        val consumed = if (playTone) TICK_DURATION_MS.toLong() else 0L
+        val consumed = if (playTone) toneDuration.toLong() else 0L
         val remaining = (intervalMs - consumed).coerceAtLeast(0L)
         if (remaining > 0) {
             delay(remaining)
@@ -180,21 +185,7 @@ class CuePlayer(
 
     fun changeNow(newSpeed: Double, units: Units) {
         scope.launch {
-            val vibrate = hapticsOn && vibrator?.hasVibrator() == true
-            
-            // Play 3-2-1 countdown beeps (1 second apart)
-            repeat(3) { index ->
-                if (beepsOn) {
-                    playToneCue(CHIRP_TONE_TYPE, CHIRP_DURATION_MS, HAPTIC_CHIRP_MS, vibrate)
-                } else if (vibrate) {
-                    fireHaptic(HAPTIC_CHIRP_MS)
-                }
-                // Wait 1 second between beeps, except after the last one
-                if (index < 2) {
-                    delay(1000)
-                }
-            }
-
+            // Beeps are now played during countdown, so only announce the speed change
             if (voiceOn) {
                 duckingManager.speakTts {
                     val formatted = formatSpeed(newSpeed, units)
@@ -206,21 +197,7 @@ class CuePlayer(
 
     fun finish() {
         scope.launch {
-            val vibrate = hapticsOn && vibrator?.hasVibrator() == true
-            
-            // Play 3-2-1 countdown beeps before finish (1 second apart)
-            repeat(3) { index ->
-                if (beepsOn) {
-                    playToneCue(CHIRP_TONE_TYPE, CHIRP_DURATION_MS, HAPTIC_CHIRP_MS, vibrate)
-                } else if (vibrate) {
-                    fireHaptic(HAPTIC_CHIRP_MS)
-                }
-                // Wait 1 second between beeps, except after the last one
-                if (index < 2) {
-                    delay(1000)
-                }
-            }
-            
+            // Beeps are now played during countdown, so only announce the finish
             duckingManager.speakTts {
                 speakInternal("Session complete", flush = true)
             }
