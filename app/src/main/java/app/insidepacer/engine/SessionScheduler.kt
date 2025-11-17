@@ -102,7 +102,10 @@ class SessionScheduler(
                         if (!isActive) break
 
                         if (timeRemaining <= 3) {
-                            cuePlayer.countdownTick(timeRemaining)
+                            // Play chirp beeps if there's a segment change or session finish coming
+                            val isLastSegment = segIdx == segments.lastIndex
+                            val hasSegmentChange = nextSpeed != null || isLastSegment
+                            cuePlayer.countdownTick(timeRemaining, isSegmentChange = hasSegmentChange)
                         } else {
                             delay(1000)
                         }
