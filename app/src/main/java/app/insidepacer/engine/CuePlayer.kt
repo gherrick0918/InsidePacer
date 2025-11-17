@@ -11,6 +11,7 @@ import android.speech.tts.UtteranceProgressListener
 import app.insidepacer.audio.BeepPlayer
 import app.insidepacer.audio.CueDuckingManager
 import app.insidepacer.core.formatDuration
+import app.insidepacer.core.formatDurationForSpeech
 import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.Units
 import kotlinx.coroutines.CompletableDeferred
@@ -167,7 +168,7 @@ class CuePlayer(
 
     fun preChange(seconds: Int, nextSpeed: Double? = null, units: Units) {
         if (seconds > 0) {
-            val message = "Speed change in ${formatDuration(seconds.toLong())}"
+            val message = "Speed change in ${formatDurationForSpeech(seconds.toLong())}"
             val nextSpeedMessage = nextSpeed?.let { " to ${formatSpeed(it, units)}" } ?: ""
             scope.launch {
                 duckingManager.speakTts {
@@ -180,10 +181,16 @@ class CuePlayer(
     fun changeNow(newSpeed: Double, units: Units) {
         scope.launch {
             val vibrate = hapticsOn && vibrator?.hasVibrator() == true
-            if (beepsOn) {
-                playToneCue(CHIRP_TONE_TYPE, CHIRP_DURATION_MS, HAPTIC_CHIRP_MS, vibrate)
-            } else if (vibrate) {
-                fireHaptic(HAPTIC_CHIRP_MS)
+            
+            // Play 3 beeps
+            repeat(3) {
+                if (beepsOn) {
+                    playToneCue(CHIRP_TONE_TYPE, CHIRP_DURATION_MS, HAPTIC_CHIRP_MS, vibrate)
+                } else if (vibrate) {
+                    fireHaptic(HAPTIC_CHIRP_MS)
+                }
+                // Add a small delay between beeps
+                delay(200)
             }
 
             if (voiceOn) {

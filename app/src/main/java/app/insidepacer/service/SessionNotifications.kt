@@ -88,6 +88,7 @@ object SessionNotifications {
             .setOngoing(state.isActive)
             .setOnlyAlertOnce(true)
             .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
             .build()
 
         builder.setPublicVersion(publicNotification)
