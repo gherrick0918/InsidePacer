@@ -23,6 +23,33 @@ fun formatDuration(totalSec: Int): String = formatDuration(totalSec.toLong())
 
 fun formatDuration(totalSec: Double): String = formatDuration(totalSec.roundToLong())
 
+fun formatDurationForSpeech(totalSec: Long): String {
+    val clamped = totalSec.coerceAtLeast(0)
+    val hours = clamped / 3600
+    val minutes = ((clamped % 3600) / 60).toInt()
+    val seconds = (clamped % 60).toInt()
+    
+    val parts = mutableListOf<String>()
+    if (hours > 0) {
+        parts.add(if (hours == 1L) "1 hour" else "$hours hours")
+    }
+    if (minutes > 0) {
+        parts.add(if (minutes == 1) "1 minute" else "$minutes minutes")
+    }
+    if (seconds > 0) {
+        parts.add(if (seconds == 1) "1 second" else "$seconds seconds")
+    }
+    
+    return when (parts.size) {
+        0 -> "0 seconds"
+        1 -> parts[0]
+        2 -> "${parts[0]} and ${parts[1]}"
+        else -> "${parts[0]}, ${parts[1]}, and ${parts[2]}"
+    }
+}
+
+fun formatDurationForSpeech(totalSec: Int): String = formatDurationForSpeech(totalSec.toLong())
+
 fun formatSpeed(valueMpsOrMph: Double, units: Units): String {
     val displayValue = speedToUnits(valueMpsOrMph, units)
     val numberFormat = NumberFormat.getNumberInstance(Locale.getDefault()).apply {

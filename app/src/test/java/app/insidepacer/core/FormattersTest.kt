@@ -53,4 +53,39 @@ class FormattersTest {
         assertEquals("6.2 mph", usSpeed)
         assertEquals("10.0 km/h", ukSpeed)
     }
+
+    @Test
+    fun formatDurationForSpeechOnlySeconds() {
+        assertEquals("10 seconds", formatDurationForSpeech(10))
+    }
+
+    @Test
+    fun formatDurationForSpeechOnlyMinutes() {
+        assertEquals("5 minutes", formatDurationForSpeech(300))
+    }
+
+    @Test
+    fun formatDurationForSpeechMinutesAndSeconds() {
+        assertEquals("1 minute and 30 seconds", formatDurationForSpeech(90))
+    }
+
+    @Test
+    fun formatDurationForSpeechHoursAndMinutes() {
+        assertEquals("1 hour and 30 minutes", formatDurationForSpeech(5400))
+    }
+
+    @Test
+    fun formatDurationForSpeechAllComponents() {
+        assertEquals("1 hour, 5 minutes, and 10 seconds", formatDurationForSpeech(3910))
+    }
+
+    @Test
+    fun formatDurationForSpeechZero() {
+        assertEquals("0 seconds", formatDurationForSpeech(0))
+    }
+
+    @Test
+    fun formatDurationForSpeechSingularValues() {
+        assertEquals("1 hour, 1 minute, and 1 second", formatDurationForSpeech(3661))
+    }
 }
