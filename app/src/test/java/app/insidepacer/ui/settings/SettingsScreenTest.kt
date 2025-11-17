@@ -56,6 +56,9 @@ class SettingsScreenTest {
             startTime: Instant,
             endTime: Instant,
             notes: String?,
+            title: String?,
+            distanceMeters: Double?,
+            speedSamples: List<com.insidepacer.health.SpeedSample>?,
         ): Result<Unit> = Result.failure(IllegalStateException("Not supported"))
     }
 }
