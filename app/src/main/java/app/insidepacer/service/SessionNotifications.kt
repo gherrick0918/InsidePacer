@@ -82,6 +82,7 @@ object SessionNotifications {
             .setSmallIcon(R.drawable.ic_walk)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(state.publicSubtitle)
+            .setContentIntent(contentIntent)
             .setShowWhen(true)
             .setUsesChronometer(showChronometer)
             .setWhen(whenMs)
@@ -89,14 +90,12 @@ object SessionNotifications {
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
 
         builder.setPublicVersion(publicNotification)
-
-        if (!showChronometer) {
-            builder.setUsesChronometer(false)
-        }
-
+        
+        // Add actions before setting public version so they appear on lock screen
         val actions = buildList {
             state.pauseOrResumeAction?.let { add(it) }
             state.stopAction?.let { add(it) }
@@ -108,6 +107,10 @@ object SessionNotifications {
                 else -> intArrayOf(0, 1)
             }
             builder.setStyle(MediaStyle().setShowActionsInCompactView(*compactIndices))
+        }
+
+        if (!showChronometer) {
+            builder.setUsesChronometer(false)
         }
 
         if (BuildConfig.DEBUG && state.showDebugSubtext && state.debugSegmentId.isNotBlank()) {

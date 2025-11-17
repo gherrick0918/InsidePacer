@@ -182,15 +182,17 @@ class CuePlayer(
         scope.launch {
             val vibrate = hapticsOn && vibrator?.hasVibrator() == true
             
-            // Play 3 beeps
-            repeat(3) {
+            // Play 3-2-1 countdown beeps (1 second apart)
+            repeat(3) { index ->
                 if (beepsOn) {
                     playToneCue(CHIRP_TONE_TYPE, CHIRP_DURATION_MS, HAPTIC_CHIRP_MS, vibrate)
                 } else if (vibrate) {
                     fireHaptic(HAPTIC_CHIRP_MS)
                 }
-                // Add a small delay between beeps
-                delay(200)
+                // Wait 1 second between beeps, except after the last one
+                if (index < 2) {
+                    delay(1000)
+                }
             }
 
             if (voiceOn) {
@@ -204,6 +206,21 @@ class CuePlayer(
 
     fun finish() {
         scope.launch {
+            val vibrate = hapticsOn && vibrator?.hasVibrator() == true
+            
+            // Play 3-2-1 countdown beeps before finish (1 second apart)
+            repeat(3) { index ->
+                if (beepsOn) {
+                    playToneCue(CHIRP_TONE_TYPE, CHIRP_DURATION_MS, HAPTIC_CHIRP_MS, vibrate)
+                } else if (vibrate) {
+                    fireHaptic(HAPTIC_CHIRP_MS)
+                }
+                // Wait 1 second between beeps, except after the last one
+                if (index < 2) {
+                    delay(1000)
+                }
+            }
+            
             duckingManager.speakTts {
                 speakInternal("Session complete", flush = true)
             }
