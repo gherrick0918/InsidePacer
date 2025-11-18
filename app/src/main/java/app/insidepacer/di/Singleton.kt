@@ -3,6 +3,7 @@ package app.insidepacer.di
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
+import app.insidepacer.analytics.AnalyticsService
 import app.insidepacer.audio.CueDuckingManager
 import app.insidepacer.engine.CuePlayer
 import app.insidepacer.engine.SessionScheduler
@@ -14,6 +15,10 @@ import kotlinx.coroutines.withContext
 object Singleton {
     @Volatile
     private var _sessionScheduler: SessionScheduler? = null
+    
+    @Volatile
+    private var _analyticsService: AnalyticsService? = null
+    
     private val mutex = Mutex()
 
     private val looperThread by lazy {
@@ -35,6 +40,16 @@ object Singleton {
             }
             _sessionScheduler = newScheduler
             newScheduler
+        }
+    }
+    
+    fun getAnalyticsService(context: Context): AnalyticsService {
+        _analyticsService?.let { return it }
+        synchronized(this) {
+            _analyticsService?.let { return it }
+            val newService = AnalyticsService(context.applicationContext)
+            _analyticsService = newService
+            return newService
         }
     }
 }

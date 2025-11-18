@@ -1,0 +1,39 @@
+{
+  "_comment": "This is a template file. To use Firebase features:",
+  "_instructions": [
+    "1. Go to https://console.firebase.google.com/",
+    "2. Create a new Firebase project or use an existing one",
+    "3. Add an Android app with package name: app.insidepacer",
+    "4. Download the google-services.json file",
+    "5. Place it in the app/ directory (same location as this template)",
+    "6. The google-services.json file is gitignored to keep your credentials secure"
+  ],
+  "project_info": {
+    "project_number": "YOUR_PROJECT_NUMBER",
+    "firebase_url": "https://YOUR_PROJECT_ID.firebaseio.com",
+    "project_id": "YOUR_PROJECT_ID",
+    "storage_bucket": "YOUR_PROJECT_ID.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:YOUR_PROJECT_NUMBER:android:YOUR_APP_ID",
+        "android_client_info": {
+          "package_name": "app.insidepacer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "YOUR_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
