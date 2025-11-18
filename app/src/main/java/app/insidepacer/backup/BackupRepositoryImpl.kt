@@ -72,10 +72,27 @@ class BackupRepositoryImpl(
         val info = AccountInfo(email = account.email, accountId = account.accountId)
         accountStore.writeAccount(info)
         _status.update { it.copy(account = info, errorMessage = null) }
+        
+        // Track successful backup sign-in
+        try {
+            val analytics = app.insidepacer.di.Singleton.getAnalyticsService(context)
+            analytics.logBackupSignIn()
+            analytics.setHasBackup(true)
+        } catch (e: Exception) {
+            // Silently fail if analytics is not available
+        }
+        
         refreshBackups()
         info
     }.onFailure { err ->
         _status.update { it.copy(errorMessage = err.message) }
+        
+        // Track backup error
+        try {
+            app.insidepacer.analytics.CrashlyticsHelper.trackBackupError("sign_in", err)
+        } catch (e: Exception) {
+            // Silently fail if Crashlytics is not available
+        }
     }
 
     override suspend fun signOut() {
@@ -92,6 +109,14 @@ class BackupRepositoryImpl(
     }
 
     override suspend fun backupNow(): Result<Unit> = runCatching {
+        // Track backup start
+        try {
+            val analytics = app.insidepacer.di.Singleton.getAnalyticsService(context)
+            analytics.logBackupStart()
+        } catch (e: Exception) {
+            // Silently fail if analytics is not available
+        }
+        
         ensureSignedInForAction()
         val bundle = buildBundle()
         val jsonBytes = json.encodeToString(BackupBundle.serializer(), bundle).encodeToByteArray()
@@ -110,12 +135,38 @@ class BackupRepositoryImpl(
                 errorMessage = null
             )
         }
+        
+        // Track backup success
+        try {
+            val analytics = app.insidepacer.di.Singleton.getAnalyticsService(context)
+            analytics.logBackupSuccess(encrypted.size.toLong())
+        } catch (e: Exception) {
+            // Silently fail if analytics is not available
+        }
+        
         Unit
     }.onFailure { err ->
         recordFailure(err, FailureKind.BACKUP)
+        
+        // Track backup failure
+        try {
+            val analytics = app.insidepacer.di.Singleton.getAnalyticsService(context)
+            analytics.logBackupFailure(err.message ?: "Unknown error")
+            app.insidepacer.analytics.CrashlyticsHelper.trackBackupError("backup", err)
+        } catch (e: Exception) {
+            // Silently fail if analytics/crashlytics is not available
+        }
     }
 
     override suspend fun restoreLatest(): Result<RestoreReport> = runCatching {
+        // Track restore start
+        try {
+            val analytics = app.insidepacer.di.Singleton.getAnalyticsService(context)
+            analytics.logRestoreStart()
+        } catch (e: Exception) {
+            // Silently fail if analytics is not available
+        }
+        
         val account = _status.value.account
         val remoteBackups = if (account != null) listBackupsInternal() else emptyList()
         val primary = remoteBackups.firstOrNull()
@@ -140,9 +191,27 @@ class BackupRepositoryImpl(
                 remoteBackups = if (remoteBackups.isNotEmpty()) remoteBackups else current.remoteBackups
             )
         }
+        
+        // Track restore success
+        try {
+            val analytics = app.insidepacer.di.Singleton.getAnalyticsService(context)
+            analytics.logRestoreSuccess()
+        } catch (e: Exception) {
+            // Silently fail if analytics is not available
+        }
+        
         report
     }.onFailure { err ->
         recordFailure(err, FailureKind.RESTORE)
+        
+        // Track restore failure
+        try {
+            val analytics = app.insidepacer.di.Singleton.getAnalyticsService(context)
+            analytics.logRestoreFailure(err.message ?: "Unknown error")
+            app.insidepacer.analytics.CrashlyticsHelper.trackBackupError("restore", err)
+        } catch (e: Exception) {
+            // Silently fail if analytics/crashlytics is not available
+        }
     }
 
     override suspend fun listBackups(): List<DriveBackupMeta> = runCatching {
