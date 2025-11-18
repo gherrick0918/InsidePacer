@@ -2,10 +2,10 @@ package app.insidepacer.analytics
 
 import android.content.Context
 import android.os.Bundle
+import com.google.firebase.Firebase
 import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.analytics.ktx.analytics
-import com.google.firebase.analytics.ktx.logEvent
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 
 /**
  * Wrapper for Firebase Analytics to track app events and user behavior.

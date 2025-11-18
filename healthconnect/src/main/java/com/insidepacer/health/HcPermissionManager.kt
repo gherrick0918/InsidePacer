@@ -22,12 +22,8 @@ import kotlin.coroutines.resume
 internal class HcPermissionManager(private val client: HealthConnectClient) {
     private val writePermissionsModern: Set<String> by lazy {
         val modernPermission = HealthPermission.getWritePermission(ExerciseSessionRecord::class)
-        // Ensure we store the string representation, handling both String and HealthPermission object cases
-        val permissionString = when (modernPermission) {
-            is String -> modernPermission
-            else -> permissionTokenAny(modernPermission) ?: modernPermission.toString()
-        }
-        setOf(permissionString)
+        // getWritePermission returns a String representation
+        setOf(modernPermission)
     }
     private val writePermissionsLegacy: Set<String> = setOf(
         LEGACY_WRITE_PERMISSION
