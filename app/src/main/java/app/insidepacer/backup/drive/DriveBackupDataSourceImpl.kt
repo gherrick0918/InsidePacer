@@ -50,6 +50,14 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
+/**
+ * Implementation of DriveBackupDataSource using Google Drive API.
+ * 
+ * Note: This class uses the deprecated GoogleSignIn API. Migration to the new
+ * Credential Manager API is planned for a future update. The deprecated API
+ * is still functional and supported by Google.
+ */
+@Suppress("DEPRECATION")
 class DriveBackupDataSourceImpl(
     private val context: Context,
     private val credentialManager: CredentialManager = CredentialManager.create(context)
