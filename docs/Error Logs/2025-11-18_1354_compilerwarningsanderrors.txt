@@ -1,0 +1,215 @@
+Executing tasks: [:app:compileDebugSources, :app:compileDebugUnitTestSources, :app:compileDebugAndroidTestSources] in project C:\dev\InsidePacer
+
+> Task :healthconnect:preBuild UP-TO-DATE
+> Task :healthconnect:preDebugBuild UP-TO-DATE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :healthconnect:generateDebugResValues
+> Task :app:generateDebugBuildConfig
+> Task :healthconnect:writeDebugAarMetadata
+> Task :healthconnect:generateDebugResources
+> Task :app:generateDebugResValues
+> Task :healthconnect:packageDebugResources
+> Task :healthconnect:extractDeepLinksDebug
+> Task :healthconnect:compileDebugLibraryResources
+> Task :healthconnect:processDebugManifest
+> Task :healthconnect:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :healthconnect:javaPreCompileDebug
+> Task :healthconnect:parseDebugLocalResources
+> Task :healthconnect:generateDebugRFile
+> Task :app:checkDebugAarMetadata
+> Task :app:injectCrashlyticsMappingFileIdDebug
+> Task :app:processDebugGoogleServices
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:mergeDebugResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebug
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:processDebugAndroidTestManifest
+> Task :app:generateDebugAndroidTestBuildConfig
+> Task :app:generateDebugAndroidTestResValues
+> Task :app:checkDebugAndroidTestAarMetadata
+> Task :app:mapDebugAndroidTestSourceSetPaths
+> Task :app:generateDebugAndroidTestResources
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugAndroidTestResources
+> Task :app:javaPreCompileDebugAndroidTest
+> Task :app:processDebugAndroidTestResources
+> Task :app:processDebugResources
+
+> Task :healthconnect:compileDebugKotlin
+w: file:///C:/dev/InsidePacer/healthconnect/src/main/java/com/insidepacer/health/HcPermissionManager.kt:27:13 Check for instance is always 'true'.
+
+> Task :healthconnect:compileDebugJavaWithJavac NO-SOURCE
+> Task :healthconnect:bundleLibCompileToJarDebug
+> Task :app:compileDebugKotlin
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:20:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:21:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:22:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:28:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:29:31 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:30:30 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:31:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:43:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:44:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:45:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:46:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:47:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:48:31 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:49:30 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:62:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:63:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:69:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:70:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:71:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:76:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:77:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:82:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:83:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:88:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:89:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:90:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:96:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:97:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:98:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:103:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:104:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:109:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:110:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:115:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:116:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:117:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:118:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:128:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:129:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:134:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:135:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:148:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:149:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:154:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:155:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:161:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:162:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:163:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:177:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:178:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:179:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:184:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:185:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:186:13 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:192:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:193:13 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:220:19 'fun FirebaseAnalytics.logEvent(name: String, block: ParametersBuilder.() -> Unit): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:223:34 'fun param(key: String, value: String): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:224:32 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:225:34 'fun param(key: String, value: Double): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:226:31 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/analytics/AnalyticsService.kt:227:35 'fun param(key: String, value: Long): Unit' is deprecated. Migrate to use the KTX API from the main module: https://firebase.google.com/docs/android/kotlin-migration.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:20:8 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:21:8 'class GoogleSignInAccount : AbstractSafeParcelable, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:22:8 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:23:8 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:66:13 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:68:44 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:149:19 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:149:47 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:150:9 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:221:34 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:221:62 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:229:42 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:255:40 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/dev/InsidePacer/app/src/main/java/app/insidepacer/backup/drive/DriveBackupDataSourceImpl.kt:336:20 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:compileDebugSources
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:compileDebugAndroidTestKotlin
+
+> Task :app:compileDebugUnitTestKotlin FAILED
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:19:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:20:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:21:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:33:6 Unresolved reference 'Test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:85:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:86:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:87:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:88:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:91:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/BackupRepositoryTest.kt:92:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/LocalCryptoTest.kt:4:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/LocalCryptoTest.kt:5:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/LocalCryptoTest.kt:6:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/LocalCryptoTest.kt:14:6 Unresolved reference 'Test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/LocalCryptoTest.kt:19:9 Unresolved reference 'assertContentEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/LocalCryptoTest.kt:22:6 Unresolved reference 'Test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/backup/LocalCryptoTest.kt:27:9 Unresolved reference 'assertFailsWith'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:6:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:7:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:20:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:21:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:22:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:24:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:25:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:26:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:27:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:32:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:33:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:34:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:35:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:36:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/csv/CsvWriterTest.kt:37:9 Unresolved reference 'assertEquals'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:3:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:4:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:5:15 Unresolved reference 'test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:10:6 Unresolved reference 'Test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:12:9 Unresolved reference 'assertFalse'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:15:6 Unresolved reference 'Test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:18:9 Unresolved reference 'assertFalse'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:21:6 Unresolved reference 'Test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:24:9 Unresolved reference 'assertFalse'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:25:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:26:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:27:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:30:6 Unresolved reference 'Test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:33:9 Unresolved reference 'assertFalse'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:34:9 Unresolved reference 'assertFalse'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:37:6 Unresolved reference 'Test'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:40:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/engine/CountdownCuePlannerTest.kt:42:9 Unresolved reference 'assertTrue'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/healthconnect/HealthConnectSessionSyncerTest.kt:28:27 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/healthconnect/HealthConnectSessionSyncerTest.kt:28:39 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/healthconnect/HealthConnectSessionSyncerTest.kt:29:35 Unresolved reference 'edit'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/healthconnect/HealthConnectSessionSyncerTest.kt:29:42 Unresolved reference 'it'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/ui/settings/SettingsScreenTest.kt:29:28 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/ui/settings/SettingsScreenTest.kt:29:40 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/ui/settings/SettingsScreenTest.kt:30:35 Unresolved reference 'edit'.
+e: file:///C:/dev/InsidePacer/app/src/test/java/app/insidepacer/ui/settings/SettingsScreenTest.kt:30:42 Unresolved reference 'it'.
+
+> Task :app:compileDebugAndroidTestJavaWithJavac
+> Task :app:compileDebugAndroidTestSources
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugUnitTestKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 59s
+46 actionable tasks: 46 executed
