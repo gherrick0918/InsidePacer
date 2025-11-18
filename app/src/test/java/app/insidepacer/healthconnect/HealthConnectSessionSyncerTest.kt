@@ -2,6 +2,7 @@ package app.insidepacer.healthconnect
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.insidepacer.data.settingsDataStore
