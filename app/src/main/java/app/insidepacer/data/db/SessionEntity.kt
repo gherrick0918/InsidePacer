@@ -13,5 +13,6 @@ data class SessionEntity(
     val endMillis: Long,
     val totalSeconds: Int,
     val segments: List<Segment>,
-    val aborted: Boolean
+    val aborted: Boolean,
+    val notes: String? = null
 )

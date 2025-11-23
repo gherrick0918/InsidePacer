@@ -90,7 +90,6 @@ class SessionRepoRoom(private val ctx: Context, private val database: AppDatabas
                 val maxSpeed = s.segments.maxOfOrNull { it.speed }?.let { value ->
                     formatSpeedWithUnit(value, units, numberFormat)
                 } ?: ""
-                // TODO: session notes are not captured yet; export empty column for stability.
                 writer.writeRow(
                     listOf(
                         s.id,
@@ -104,7 +103,7 @@ class SessionRepoRoom(private val ctx: Context, private val database: AppDatabas
                         duration,
                         avgSpeedWithUnit,
                         maxSpeed,
-                        ""
+                        s.notes ?: ""
                     )
                 )
             }
@@ -145,6 +144,10 @@ class SessionRepoRoom(private val ctx: Context, private val database: AppDatabas
 
     suspend fun clear() = withContext(Dispatchers.IO) {
         database.sessionDao().deleteAll()
+    }
+
+    suspend fun updateNotes(sessionId: String, notes: String?) = withContext(Dispatchers.IO) {
+        database.sessionDao().updateNotes(sessionId, notes)
     }
 
     private fun formatSpeedWithUnit(

@@ -24,7 +24,8 @@ class MappersTest {
                 Segment(5.0, 1800),
                 Segment(6.0, 1800)
             ),
-            aborted = false
+            aborted = false,
+            notes = "Great workout!"
         )
 
         val entity = session.toEntity()
@@ -37,6 +38,7 @@ class MappersTest {
         assertEquals(session.totalSeconds, restored.totalSeconds)
         assertEquals(session.segments.size, restored.segments.size)
         assertEquals(session.aborted, restored.aborted)
+        assertEquals(session.notes, restored.notes)
     }
 
     @Test
@@ -98,13 +100,35 @@ class MappersTest {
             endMillis = 1234567890000L + 1800000L,
             totalSeconds = 1800,
             segments = listOf(Segment(5.0, 1800)),
-            aborted = false
+            aborted = false,
+            notes = null
         )
 
         val entity = session.toEntity()
         val restored = entity.toDomain()
 
         assertNull(restored.programId)
+        assertNull(restored.notes)
+        assertEquals(session.id, restored.id)
+    }
+
+    @Test
+    fun `SessionLog with notes`() {
+        val session = SessionLog(
+            id = "session_456",
+            programId = "prog_789",
+            startMillis = 1234567890000L,
+            endMillis = 1234567890000L + 1800000L,
+            totalSeconds = 1800,
+            segments = listOf(Segment(5.0, 1800)),
+            aborted = false,
+            notes = "Felt strong today, maintained good pace"
+        )
+
+        val entity = session.toEntity()
+        val restored = entity.toDomain()
+
+        assertEquals("Felt strong today, maintained good pace", restored.notes)
         assertEquals(session.id, restored.id)
     }
 

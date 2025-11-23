@@ -13,7 +13,8 @@ fun SessionEntity.toDomain(): SessionLog {
         endMillis = endMillis,
         totalSeconds = totalSeconds,
         segments = segments,
-        aborted = aborted
+        aborted = aborted,
+        notes = notes
     )
 }
 
@@ -25,7 +26,8 @@ fun SessionLog.toEntity(): SessionEntity {
         endMillis = endMillis,
         totalSeconds = totalSeconds,
         segments = segments,
-        aborted = aborted
+        aborted = aborted,
+        notes = notes
     )
 }
 
