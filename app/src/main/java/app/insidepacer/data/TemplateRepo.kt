@@ -3,50 +3,40 @@ package app.insidepacer.data
 import android.content.Context
 import app.insidepacer.domain.Template
 import app.insidepacer.domain.Segment
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
-import java.io.File
+import app.insidepacer.di.Singleton
+import kotlinx.coroutines.runBlocking
 
+/**
+ * Template repository using Room Database.
+ * This replaces the old JSON file-based storage.
+ */
 class TemplateRepo(private val ctx: Context) {
-    private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
-    private val file: File get() = File(ctx.filesDir, "templates.json")
-
-    private fun readAll(): MutableList<Template> = try {
-        if (!file.exists()) mutableListOf()
-        else json.decodeFromString(ListSerializer(Template.serializer()), file.readText()).toMutableList()
-    } catch (_: Throwable) { mutableListOf() }
-
-    private suspend fun writeAll(items: List<Template>) = withContext(Dispatchers.IO) {
-        val tmp = File.createTempFile("templates", ".json", ctx.cacheDir)
-        tmp.writeText(json.encodeToString(ListSerializer(Template.serializer()), items))
-        tmp.copyTo(file, overwrite = true)
-        tmp.delete()
+    private val roomRepo: TemplateRepoRoom by lazy {
+        runBlocking {
+            val db = Singleton.getDatabase(ctx)
+            TemplateRepoRoom(ctx, db)
+        }
     }
 
-    fun loadAll(): List<Template> = readAll().sortedBy { it.name }
-    fun get(id: String): Template? = readAll().firstOrNull { it.id == id }
+    fun loadAll(): List<Template> = runBlocking {
+        roomRepo.loadAll()
+    }
 
-    fun newId(): String = "tmpl_" + System.currentTimeMillis()
+    fun get(id: String): Template? = runBlocking {
+        roomRepo.get(id)
+    }
+
+    fun newId(): String = roomRepo.newId()
 
     suspend fun create(name: String, segments: List<Segment>): Template {
-        val all = readAll()
-        val t = Template(newId(), name.ifBlank { "Template" }, segments)
-        all += t
-        writeAll(all)
-        return t
+        return roomRepo.create(name, segments)
     }
 
     suspend fun save(template: Template) {
-        val all = readAll()
-        val idx = all.indexOfFirst { it.id == template.id }
-        if (idx >= 0) all[idx] = template else all += template
-        writeAll(all)
+        roomRepo.save(template)
     }
 
     suspend fun delete(id: String) {
-        val all = readAll().filterNot { it.id == id }
-        writeAll(all)
+        roomRepo.delete(id)
     }
 }
