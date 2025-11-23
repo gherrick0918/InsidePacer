@@ -151,7 +151,6 @@ fun AppNav() {
                                     Destination.Profile -> Icons.Default.Person
                                     Destination.Schedule -> Icons.Default.CalendarMonth
                                     Destination.Today -> Icons.Default.CalendarMonth
-    Destination.Statistics -> "Performance Codex"
                                     Destination.Statistics -> Icons.Default.BarChart
                                     Destination.Settings -> Icons.Default.Settings
                                     else -> Icons.Default.PlayArrow
