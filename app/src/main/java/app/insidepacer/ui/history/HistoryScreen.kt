@@ -243,7 +243,7 @@ fun HistoryDetailScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    if (!currentNotes.isNullOrBlank()) {
+                    if (currentNotes.isNotBlank()) {
                         Text(
                             "Notes: $currentNotes",
                             style = MaterialTheme.typography.bodyMedium,
@@ -314,9 +314,15 @@ fun HistoryDetailScreen(
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
-                        repo.updateNotes(log.id, editedNotes.ifBlank { null })
-                        currentNotes = editedNotes
-                        showEditNotesDialog = false
+                        try {
+                            repo.updateNotes(log.id, editedNotes.ifBlank { null })
+                            // Only update UI state after successful save
+                            currentNotes = editedNotes
+                            showEditNotesDialog = false
+                        } catch (e: Exception) {
+                            // If update fails, keep dialog open
+                            // In production, you might want to show an error message
+                        }
                     }
                 }) { Text("Save") }
             },
