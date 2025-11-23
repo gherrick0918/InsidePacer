@@ -68,7 +68,8 @@ data class SessionDto(
     val endMillis: Long,
     val totalSeconds: Int,
     val segments: List<SegmentDto>,
-    val aborted: Boolean
+    val aborted: Boolean,
+    val notes: String? = null
 ) {
     fun toDomain(): SessionLog = SessionLog(
         id = id,
@@ -77,7 +78,8 @@ data class SessionDto(
         endMillis = endMillis,
         totalSeconds = totalSeconds,
         segments = segments.map { it.toDomain() },
-        aborted = aborted
+        aborted = aborted,
+        notes = notes
     )
 
     companion object {
@@ -88,7 +90,8 @@ data class SessionDto(
             endMillis = domain.endMillis,
             totalSeconds = domain.totalSeconds,
             segments = domain.segments.map { SegmentDto.from(it) },
-            aborted = domain.aborted
+            aborted = domain.aborted,
+            notes = domain.notes
         )
     }
 }

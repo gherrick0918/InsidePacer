@@ -58,4 +58,8 @@ class SessionRepo(private val ctx: Context) {
     suspend fun clear() {
         roomRepo.clear()
     }
+
+    suspend fun updateNotes(sessionId: String, notes: String?) {
+        roomRepo.updateNotes(sessionId, notes)
+    }
 }
