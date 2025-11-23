@@ -18,8 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.insidepacer.domain.Segment
 import app.insidepacer.ui.theme.Spacings
@@ -41,16 +39,10 @@ fun WorkoutPlan(segments: List<Segment>, currentSegment: Int, units: Units) {
                 } else {
                     Color.Transparent
                 }
-                val statusText = if (index == currentSegment) "Current segment" else "Segment ${index + 1}"
-                val segmentDescription = "$statusText: ${formatSpeed(segment.speed, units)} for ${formatDuration(segment.seconds)}"
-                
                 Box(
                     modifier = Modifier
                         .background(backgroundColor)
                         .padding(Spacings.small)
-                        .semantics {
-                            contentDescription = segmentDescription
-                        }
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = formatSpeed(segment.speed, units), style = MaterialTheme.typography.bodyLarge)

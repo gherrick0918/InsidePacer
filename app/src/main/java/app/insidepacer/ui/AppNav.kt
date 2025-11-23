@@ -150,7 +150,7 @@ fun AppNav() {
                                     Destination.Settings -> Icons.Default.Settings
                                     else -> Icons.Default.PlayArrow
                                 },
-                                contentDescription = drawerLabelFor(destination)
+                                contentDescription = null
                             )
                         },
                         selected = selected,

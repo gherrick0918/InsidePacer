@@ -29,8 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.formatSpeed
@@ -122,7 +120,7 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = { selectedDate = selectedDate.minusDays(1) }) { Text("Previous day") }
+                    Button(onClick = { selectedDate = selectedDate.minusDays(1) }) { Text("<") }
                     Text(
                         text = selectedDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -130,7 +128,7 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                     Button(
                         onClick = { selectedDate = selectedDate.plusDays(1) },
                         enabled = selectedDate.isBefore(LocalDate.now().plusDays(90))
-                    ) { Text("Next day") }
+                    ) { Text(">") }
                 }
 
                 Text("Week ${w + 1}, Day ${d + 1}")
@@ -178,9 +176,6 @@ fun TodayScreen(onOpenPrograms: () -> Unit) {
                     if (sessionState?.active == true) {
                          OutlinedButton(
                             onClick = { sessionScheduler?.togglePause() },
-                            modifier = Modifier.semantics {
-                                stateDescription = if (sessionState?.isPaused == true) "Session is paused" else "Session is running"
-                            }
                         ) { Text(if (sessionState?.isPaused == true) "Resume" else "Pause") }
 
                         OutlinedButton(
