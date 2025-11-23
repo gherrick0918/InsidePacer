@@ -49,3 +49,27 @@ Firebase services are optional but recommended for better analytics and crash re
 For detailed instructions, see [docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)
 
 **Note**: The app works perfectly without Firebase configuration - Firebase features will be disabled if the configuration file is not present.
+
+## Development
+
+### Testing
+
+The project includes comprehensive unit tests. To run tests:
+
+```bash
+./gradlew test
+```
+
+For more information on testing and CI/CD, see [CI/CD Setup Guide](docs/CI_CD_SETUP.md).
+
+### Code Quality
+
+The project uses Android Lint for code quality checks:
+
+```bash
+./gradlew lint
+```
+
+## Contributing
+
+Pull requests are automatically built and tested using GitHub Actions. Ensure all tests pass locally before submitting.
