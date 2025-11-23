@@ -42,7 +42,18 @@ fun WorkoutPlan(segments: List<Segment>, currentSegment: Int, units: Units) {
                     Color.Transparent
                 }
                 val statusText = if (index == currentSegment) "Current segment" else "Segment ${index + 1}"
-                val segmentDescription = "$statusText: ${formatSpeed(segment.speed, units)} for ${formatDuration(segment.seconds)}"
+                val labelText = segment.label ?: statusText
+                val segmentDescription = buildString {
+                    append(labelText)
+                    append(": ")
+                    append(formatSpeed(segment.speed, units))
+                    append(" for ")
+                    append(formatDuration(segment.seconds))
+                    segment.description?.let { desc ->
+                        append(". ")
+                        append(desc)
+                    }
+                }
                 
                 Box(
                     modifier = Modifier
@@ -53,6 +64,13 @@ fun WorkoutPlan(segments: List<Segment>, currentSegment: Int, units: Units) {
                         }
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        segment.label?.let { label ->
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text(text = formatSpeed(segment.speed, units), style = MaterialTheme.typography.bodyLarge)
                         Text(text = formatDuration(segment.seconds), style = MaterialTheme.typography.bodySmall)
                     }
