@@ -259,9 +259,9 @@ class ModelsTest {
     @Test
     fun `SessionLog with segments containing metadata`() {
         val segments = listOf(
-            Segment(2.0, 300, "Warm-up", "Easy pace"),
-            Segment(4.0, 120, "Work", "Push hard"),
-            Segment(2.5, 90, "Recovery", "Active rest")
+            Segment(speed = 2.0, seconds = 300, label = "Warm-up", description = "Easy pace"),
+            Segment(speed = 4.0, seconds = 120, label = "Work", description = "Push hard"),
+            Segment(speed = 2.5, seconds = 90, label = "Recovery", description = "Active rest")
         )
         val sessionLog = SessionLog(
             id = "session123",
@@ -286,11 +286,11 @@ class ModelsTest {
     @Test
     fun `Template with metadata segments`() {
         val segments = listOf(
-            Segment(2.0, 300, "Warm-up"),
-            Segment(4.0, 120, "Interval", "High intensity"),
-            Segment(2.5, 90, "Rest"),
-            Segment(4.0, 120, "Interval", "High intensity"),
-            Segment(2.0, 300, "Cool-down")
+            Segment(speed = 2.0, seconds = 300, label = "Warm-up"),
+            Segment(speed = 4.0, seconds = 120, label = "Interval", description = "High intensity"),
+            Segment(speed = 2.5, seconds = 90, label = "Rest"),
+            Segment(speed = 4.0, seconds = 120, label = "Interval", description = "High intensity"),
+            Segment(speed = 2.0, seconds = 300, label = "Cool-down")
         )
         val template = Template(
             id = "template123",
