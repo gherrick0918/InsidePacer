@@ -11,13 +11,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -77,7 +80,7 @@ fun HistoryScreen(
                 text = "Archive",
                 actions = {
                     OutlinedButton(onClick = { refresh() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh workout history")
                         Text("Refresh", modifier = Modifier.padding(start = 8.dp))
                     }
                     OutlinedButton(onClick = {
@@ -95,11 +98,11 @@ fun HistoryScreen(
                             ctx.startActivity(Intent.createChooser(share, "Export session CSVs"))
                         }
                     }) {
-                        Icon(Icons.Default.Share, contentDescription = "Export")
+                        Icon(Icons.Default.Share, contentDescription = "Export workout data to CSV")
                         Text("Export", modifier = Modifier.padding(start = 8.dp))
                     }
                     OutlinedButton(onClick = { showConfirm = true }) {
-                        Icon(Icons.Default.ClearAll, contentDescription = "Clear")
+                        Icon(Icons.Default.ClearAll, contentDescription = "Clear all workout history")
                         Text("Clear", modifier = Modifier.padding(start = 8.dp))
                     }
                 }
@@ -143,6 +146,13 @@ fun HistoryScreen(
                                     statusPieces.joinToString(" • "),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
+                                if (!log.notes.isNullOrBlank()) {
+                                    Text(
+                                        log.notes,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -193,7 +203,12 @@ fun HistoryDetailScreen(
     val sdf = remember { DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.getDefault()) }
     val ctx = LocalContext.current
     val settings = remember { SettingsRepo(ctx) }
+    val repo = remember { SessionRepo(ctx) }
     val units by settings.units.collectAsState(initial = Units.MPH)
+    val scope = rememberCoroutineScope()
+    
+    var showEditNotesDialog by remember { mutableStateOf(false) }
+    var currentNotes by remember { mutableStateOf(log.notes ?: "") }
 
     Column(
         Modifier
@@ -220,6 +235,36 @@ fun HistoryDetailScreen(
                 detailPieces.joinToString(" • "),
                 style = MaterialTheme.typography.bodyLarge
             )
+            
+            // Notes section with edit button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    if (currentNotes.isNotBlank()) {
+                        Text(
+                            "Notes: $currentNotes",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            "No notes",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+                IconButton(onClick = { showEditNotesDialog = true }) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit notes",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
 
         RpgPanel(title = "Realized segments") {
@@ -246,5 +291,44 @@ fun HistoryDetailScreen(
                 }
             }
         }
+    }
+    
+    // Edit Notes Dialog
+    if (showEditNotesDialog) {
+        var editedNotes by remember { mutableStateOf(currentNotes) }
+        
+        AlertDialog(
+            onDismissRequest = { showEditNotesDialog = false },
+            title = { Text("Edit Session Notes") },
+            text = {
+                OutlinedTextField(
+                    value = editedNotes,
+                    onValueChange = { editedNotes = it },
+                    label = { Text("Notes") },
+                    placeholder = { Text("Add notes about this session...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 6
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        try {
+                            repo.updateNotes(log.id, editedNotes.ifBlank { null })
+                            // Only update UI state after successful save
+                            currentNotes = editedNotes
+                            showEditNotesDialog = false
+                        } catch (e: Exception) {
+                            // If update fails, keep dialog open
+                            // In production, you might want to show an error message
+                        }
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditNotesDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }

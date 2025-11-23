@@ -22,6 +22,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.Units
@@ -41,7 +46,11 @@ fun SessionScreen() {
 
     if (sessionScheduler == null) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .semantics {
+                    contentDescription = "Loading session information"
+                },
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator()
@@ -51,7 +60,11 @@ fun SessionScreen() {
 
     if (sessionState?.active != true) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .semantics {
+                    contentDescription = "No active workout session"
+                },
             contentAlignment = Alignment.Center
         ) {
             Text(text = "No active session")
@@ -68,18 +81,42 @@ fun SessionScreen() {
     ) {
         Text(text = "Time remaining in segment", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(Spacings.small))
-        Text(text = formatDuration(sessionState?.nextChangeInSec ?: 0), style = MaterialTheme.typography.displayLarge)
+        Text(
+            text = formatDuration(sessionState?.nextChangeInSec ?: 0),
+            style = MaterialTheme.typography.displayLarge,
+            modifier = Modifier.semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = "Time remaining in segment: ${formatDuration(sessionState?.nextChangeInSec ?: 0)}"
+            }
+        )
         Spacer(modifier = Modifier.height(Spacings.large))
 
         Text(text = "Current Speed", style = MaterialTheme.typography.titleMedium)
-        Text(text = formatSpeed((sessionState?.speed ?: 0f).toDouble(), sessionState?.units ?: Units.MPH), style = MaterialTheme.typography.displayMedium)
+        Text(
+            text = formatSpeed((sessionState?.speed ?: 0f).toDouble(), sessionState?.units ?: Units.MPH),
+            style = MaterialTheme.typography.displayMedium,
+            modifier = Modifier.semantics {
+                contentDescription = "Current speed: ${formatSpeed((sessionState?.speed ?: 0f).toDouble(), sessionState?.units ?: Units.MPH)}"
+            }
+        )
         Spacer(modifier = Modifier.height(Spacings.large))
 
         Row(horizontalArrangement = Arrangement.spacedBy(Spacings.medium)) {
-            Button(onClick = { sessionScheduler?.togglePause() }) {
+            Button(
+                onClick = { sessionScheduler?.togglePause() },
+                modifier = Modifier.semantics {
+                    stateDescription = if (sessionState?.isPaused == true) "Session is paused" else "Session is running"
+                    contentDescription = if (sessionState?.isPaused == true) "Resume workout" else "Pause workout"
+                }
+            ) {
                 Text(text = if (sessionState?.isPaused == true) "Resume" else "Pause")
             }
-            Button(onClick = { sessionScheduler?.stop() }) {
+            Button(
+                onClick = { sessionScheduler?.stop() },
+                modifier = Modifier.semantics {
+                    contentDescription = "Stop workout and end session"
+                }
+            ) {
                 Text(text = "Stop")
             }
         }

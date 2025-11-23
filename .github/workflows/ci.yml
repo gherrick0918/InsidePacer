@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+          
+    - name: Create google-services.json stub
+      run: |
+        cat > app/google-services.json << 'EOF'
+        {
+          "project_info": {
+            "project_number": "123456789",
+            "project_id": "test-project",
+            "storage_bucket": "test-project.appspot.com"
+          },
+          "client": [
+            {
+              "client_info": {
+                "mobilesdk_app_id": "1:123456789:android:abc123",
+                "android_client_info": {
+                  "package_name": "app.insidepacer"
+                }
+              },
+              "oauth_client": [],
+              "api_key": [
+                {
+                  "current_key": "test-api-key"
+                }
+              ],
+              "services": {
+                "appinvite_service": {
+                  "other_platform_oauth_client": []
+                }
+              }
+            }
+          ],
+          "configuration_version": "1"
+        }
+        EOF
+        
+    - name: Build with Gradle
+      run: ./gradlew build --no-daemon --stacktrace
+      
+    - name: Run unit tests
+      run: ./gradlew test --no-daemon --stacktrace
+      
+    - name: Run lint
+      run: ./gradlew lint --no-daemon --stacktrace
+      
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: |
+          **/build/reports/tests/**
+          **/build/test-results/**
+        retention-days: 30
+        
+    - name: Upload lint results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: lint-results
+        path: |
+          **/build/reports/lint-results*.html
+          **/build/reports/lint-results*.xml
+        retention-days: 30

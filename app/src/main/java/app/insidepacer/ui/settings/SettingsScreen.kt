@@ -38,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.insidepacer.BuildConfig
@@ -238,6 +240,9 @@ private fun CoachSettingsCard(
                 onValueChange = { v -> onPreChangeChanged(v.toInt()) },
                 valueRange = 3f..30f,
                 steps = 27,
+                modifier = Modifier.semantics {
+                    contentDescription = "Pre-change warning time: ${formatDuration(preChangeSeconds)}"
+                }
             )
             Text("You’ll hear voice cues like \"Speed change in ${formatDuration(preChangeSeconds)} to ${formatSpeed(4.5, units)}\".")
         }

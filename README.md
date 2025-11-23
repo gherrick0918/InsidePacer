@@ -5,11 +5,15 @@ A fitness tracking app for Android with workout sessions, training programs, and
 ## Features
 
 - **Workout Sessions**: Track interval training with customizable segments
+- **Session Notes**: Add notes to completed workouts for context and tracking
+- **Segment Metadata**: Label segments (Warm-up, Sprint, Recovery) with optional descriptions
 - **Templates**: Create and reuse workout templates
 - **Training Programs**: Build or generate multi-week training plans
+- **Statistics Dashboard**: Track personal records, trends, and workout history
 - **Health Connect Integration**: Sync workouts with Android Health Connect
 - **Google Drive Backup**: Securely backup and restore your data
 - **Firebase Integration**: Analytics, crash reporting, and performance monitoring
+- **Accessibility**: Full TalkBack support with content descriptions and live announcements
 
 ## Firebase Services (Optional)
 
@@ -49,3 +53,43 @@ Firebase services are optional but recommended for better analytics and crash re
 For detailed instructions, see [docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)
 
 **Note**: The app works perfectly without Firebase configuration - Firebase features will be disabled if the configuration file is not present.
+
+## Development
+
+### Testing
+
+The project includes comprehensive unit tests. To run tests:
+
+```bash
+./gradlew test
+```
+
+For more information on testing and CI/CD, see [CI/CD Setup Guide](docs/CI_CD_SETUP.md).
+
+### Code Quality
+
+The project uses Android Lint for code quality checks:
+
+```bash
+./gradlew lint
+```
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+- Development setup and workflow
+- Code style and conventions
+- Testing requirements
+- Pull request process
+
+Pull requests are automatically built and tested using GitHub Actions. Ensure all tests pass locally before submitting.
+
+## Documentation
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contributor guidelines
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Application architecture and design patterns
+- [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) - Accessibility guidelines and TalkBack support
+- [docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md) - Firebase configuration
+- [docs/CI_CD_SETUP.md](docs/CI_CD_SETUP.md) - CI/CD pipeline documentation
+- [docs/SESSION_NOTES.md](docs/SESSION_NOTES.md) - Session notes feature
+- [docs/SEGMENT_METADATA.md](docs/SEGMENT_METADATA.md) - Segment labeling and descriptions
