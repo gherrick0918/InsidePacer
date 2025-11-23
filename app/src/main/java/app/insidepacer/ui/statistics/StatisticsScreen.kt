@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.formatSpeed
+import app.insidepacer.core.formatDistance
+import app.insidepacer.core.formatDistancePrecise
 import app.insidepacer.data.SettingsRepo
 import app.insidepacer.data.StatisticsRepository
 import app.insidepacer.data.Units
@@ -163,10 +165,7 @@ private fun OverallStatisticsCard(stats: WorkoutStatistics, units: Units) {
                 StatCard(
                     icon = Icons.Default.Route,
                     label = "Total Distance",
-                    value = String.format(Locale.getDefault(), "%.1f %s", 
-                        if (units == Units.MPH) stats.totalDistanceMiles else stats.totalDistanceMiles * 1.609344,
-                        if (units == Units.MPH) "mi" else "km"
-                    ),
+                    value = formatDistance(stats.totalDistanceMiles, units),
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -289,12 +288,7 @@ private fun PersonalRecordItem(record: PersonalRecord, units: Units) {
                 when (record.type) {
                     RecordType.FASTEST_SPEED, RecordType.FASTEST_PACE -> formatSpeed(record.value, units)
                     RecordType.LONGEST_DURATION -> formatDuration(record.value.toLong())
-                    RecordType.LONGEST_DISTANCE -> String.format(
-                        Locale.getDefault(), 
-                        "%.2f %s",
-                        if (units == Units.MPH) record.value else record.value * 1.609344,
-                        if (units == Units.MPH) "mi" else "km"
-                    )
+                    RecordType.LONGEST_DISTANCE -> formatDistancePrecise(record.value, units)
                 },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
@@ -352,12 +346,7 @@ private fun WeeklyTrendItem(period: PeriodStatistics, units: Units) {
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    String.format(
-                        Locale.getDefault(),
-                        "Distance: %.1f %s",
-                        if (units == Units.MPH) period.totalDistanceMiles else period.totalDistanceMiles * 1.609344,
-                        if (units == Units.MPH) "mi" else "km"
-                    ),
+                    "Distance: ${formatDistance(period.totalDistanceMiles, units)}",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -423,12 +412,7 @@ private fun RecentWorkoutItem(workout: RecentWorkout, units: Units) {
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    String.format(
-                        Locale.getDefault(),
-                        "%.2f %s",
-                        if (units == Units.MPH) workout.distanceMiles else workout.distanceMiles * 1.609344,
-                        if (units == Units.MPH) "mi" else "km"
-                    ),
+                    formatDistancePrecise(workout.distanceMiles, units),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
