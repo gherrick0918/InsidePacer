@@ -22,6 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import app.insidepacer.core.formatDuration
 import app.insidepacer.core.formatSpeed
 import app.insidepacer.data.Units
@@ -76,7 +78,12 @@ fun SessionScreen() {
         Spacer(modifier = Modifier.height(Spacings.large))
 
         Row(horizontalArrangement = Arrangement.spacedBy(Spacings.medium)) {
-            Button(onClick = { sessionScheduler?.togglePause() }) {
+            Button(
+                onClick = { sessionScheduler?.togglePause() },
+                modifier = Modifier.semantics {
+                    stateDescription = if (sessionState?.isPaused == true) "Session is paused" else "Session is running"
+                }
+            ) {
                 Text(text = if (sessionState?.isPaused == true) "Resume" else "Pause")
             }
             Button(onClick = { sessionScheduler?.stop() }) {
