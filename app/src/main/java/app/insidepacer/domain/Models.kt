@@ -6,7 +6,12 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @Parcelize
-data class Segment(val speed: Double, val seconds: Int) : Parcelable
+data class Segment(
+    val speed: Double,
+    val seconds: Int,
+    val label: String? = null,
+    val description: String? = null
+) : Parcelable
 
 @Serializable
 data class SessionLog(

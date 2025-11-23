@@ -189,4 +189,120 @@ class ModelsTest {
         val profile2 = UserProfile(preferredDaysPerWeek = 2)
         assertEquals(2, profile2.preferredDaysPerWeek)
     }
+
+    @Test
+    fun `Segment with metadata label only`() {
+        val segment = Segment(
+            speed = 3.0,
+            seconds = 120,
+            label = "Warm-up"
+        )
+        
+        assertEquals(3.0, segment.speed, 0.001)
+        assertEquals(120, segment.seconds)
+        assertEquals("Warm-up", segment.label)
+        assertNull(segment.description)
+    }
+
+    @Test
+    fun `Segment with metadata description only`() {
+        val segment = Segment(
+            speed = 5.0,
+            seconds = 60,
+            description = "Max effort sprint"
+        )
+        
+        assertEquals(5.0, segment.speed, 0.001)
+        assertEquals(60, segment.seconds)
+        assertNull(segment.label)
+        assertEquals("Max effort sprint", segment.description)
+    }
+
+    @Test
+    fun `Segment with both label and description`() {
+        val segment = Segment(
+            speed = 4.5,
+            seconds = 90,
+            label = "Sprint",
+            description = "Maintain good form"
+        )
+        
+        assertEquals(4.5, segment.speed, 0.001)
+        assertEquals(90, segment.seconds)
+        assertEquals("Sprint", segment.label)
+        assertEquals("Maintain good form", segment.description)
+    }
+
+    @Test
+    fun `Segment without metadata is backward compatible`() {
+        val segment = Segment(speed = 2.5, seconds = 300)
+        
+        assertEquals(2.5, segment.speed, 0.001)
+        assertEquals(300, segment.seconds)
+        assertNull(segment.label)
+        assertNull(segment.description)
+    }
+
+    @Test
+    fun `Segment metadata with empty strings`() {
+        val segment = Segment(
+            speed = 3.0,
+            seconds = 120,
+            label = "",
+            description = ""
+        )
+        
+        assertEquals("", segment.label)
+        assertEquals("", segment.description)
+    }
+
+    @Test
+    fun `SessionLog with segments containing metadata`() {
+        val segments = listOf(
+            Segment(speed = 2.0, seconds = 300, label = "Warm-up", description = "Easy pace"),
+            Segment(speed = 4.0, seconds = 120, label = "Work", description = "Push hard"),
+            Segment(speed = 2.5, seconds = 90, label = "Recovery", description = "Active rest")
+        )
+        val sessionLog = SessionLog(
+            id = "session123",
+            programId = "program456",
+            startMillis = 1000000L,
+            endMillis = 1510000L,
+            totalSeconds = 510,
+            segments = segments,
+            aborted = false,
+            notes = "Great interval session"
+        )
+        
+        assertEquals(3, sessionLog.segments.size)
+        assertEquals("Warm-up", sessionLog.segments[0].label)
+        assertEquals("Easy pace", sessionLog.segments[0].description)
+        assertEquals("Work", sessionLog.segments[1].label)
+        assertEquals("Push hard", sessionLog.segments[1].description)
+        assertEquals("Recovery", sessionLog.segments[2].label)
+        assertEquals("Active rest", sessionLog.segments[2].description)
+    }
+
+    @Test
+    fun `Template with metadata segments`() {
+        val segments = listOf(
+            Segment(speed = 2.0, seconds = 300, label = "Warm-up"),
+            Segment(speed = 4.0, seconds = 120, label = "Interval", description = "High intensity"),
+            Segment(speed = 2.5, seconds = 90, label = "Rest"),
+            Segment(speed = 4.0, seconds = 120, label = "Interval", description = "High intensity"),
+            Segment(speed = 2.0, seconds = 300, label = "Cool-down")
+        )
+        val template = Template(
+            id = "template123",
+            name = "5x5 Intervals",
+            segments = segments
+        )
+        
+        assertEquals(5, template.segments.size)
+        assertEquals("Warm-up", template.segments[0].label)
+        assertEquals("Interval", template.segments[1].label)
+        assertEquals("High intensity", template.segments[1].description)
+        assertEquals("Rest", template.segments[2].label)
+        assertEquals("Cool-down", template.segments[4].label)
+    }
 }

@@ -97,7 +97,7 @@ fun StatisticsScreen() {
                     fontWeight = FontWeight.Bold
                 )
                 OutlinedButton(onClick = { loadStatistics() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh statistics data")
                 }
             }
         }
