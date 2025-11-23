@@ -42,5 +42,6 @@ sealed class Destination(val route: String) {
     object Today : Destination("today")
     object Schedule : Destination("schedule")
     object Profile : Destination("profile")
+    object Statistics : Destination("statistics")
     object Settings : Destination("settings")
 }

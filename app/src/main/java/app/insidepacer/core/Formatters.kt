@@ -93,6 +93,18 @@ fun speedUnitToken(units: Units): String = when (units) {
     Units.KMH -> "kmh"
 }
 
+fun formatDistance(distanceMiles: Double, units: Units): String {
+    val distance = if (units == Units.MPH) distanceMiles else distanceMiles * MPH_TO_KMH
+    val unitLabel = if (units == Units.MPH) "mi" else "km"
+    return String.format(Locale.getDefault(), "%.1f %s", distance, unitLabel)
+}
+
+fun formatDistancePrecise(distanceMiles: Double, units: Units): String {
+    val distance = if (units == Units.MPH) distanceMiles else distanceMiles * MPH_TO_KMH
+    val unitLabel = if (units == Units.MPH) "mi" else "km"
+    return String.format(Locale.getDefault(), "%.2f %s", distance, unitLabel)
+}
+
 fun csvNumberFormat(): DecimalFormat = DecimalFormat("0.0", DecimalFormatSymbols(Locale.US)).apply {
     minimumFractionDigits = 1
     maximumFractionDigits = 1
