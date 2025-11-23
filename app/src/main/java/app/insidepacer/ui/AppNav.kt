@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
@@ -60,6 +61,7 @@ import app.insidepacer.ui.programs.TodayScreen
 import app.insidepacer.ui.quick.QuickSessionScreen
 import app.insidepacer.ui.schedule.ScheduleScreen
 import app.insidepacer.ui.settings.SettingsScreen
+import app.insidepacer.ui.statistics.StatisticsScreen
 import app.insidepacer.ui.templates.TemplateEditorScreen
 import app.insidepacer.ui.templates.TemplatesListScreen
 import kotlinx.coroutines.flow.first
@@ -78,6 +80,7 @@ fun AppNav() {
         Destination.Quick,
         Destination.Templates,
         Destination.History,
+        Destination.Statistics,
         Destination.Programs,
         Destination.GeneratePlan,
         Destination.Profile,
@@ -99,6 +102,7 @@ fun AppNav() {
         Destination.ProgramEditor.route -> "Edit Campaign"
         Destination.Schedule.route -> "Campaign Calendar"
         Destination.Today.route -> "Today’s Quest"
+        Destination.Statistics.route -> "Performance Codex"
         Destination.Settings.route -> "Coach Settings"
         else -> "InsidePacer"
     }
@@ -147,6 +151,8 @@ fun AppNav() {
                                     Destination.Profile -> Icons.Default.Person
                                     Destination.Schedule -> Icons.Default.CalendarMonth
                                     Destination.Today -> Icons.Default.CalendarMonth
+    Destination.Statistics -> "Performance Codex"
+                                    Destination.Statistics -> Icons.Default.BarChart
                                     Destination.Settings -> Icons.Default.Settings
                                     else -> Icons.Default.PlayArrow
                                 },
@@ -306,6 +312,10 @@ fun AppNav() {
                             ProfileScreen()
                         }
 
+                        composable(Destination.Statistics.route) {
+                            StatisticsScreen()
+                        }
+
                         composable(Destination.Settings.route) {
                             SettingsScreen()
                         }
@@ -325,6 +335,7 @@ fun drawerLabelFor(destination: Destination) = when (destination) {
     Destination.Profile -> "Profile"
     Destination.Schedule -> "Campaign Calendar"
     Destination.Today -> "Today’s Quest"
+    Destination.Statistics -> "Performance Codex"
     Destination.Settings -> "Settings"
     else -> destination.route.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }
