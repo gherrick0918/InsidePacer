@@ -129,29 +129,35 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
-                    IconButton(onClick = {
-                        val newSegs = segments.toMutableList()
-                        if (i > 0) {
-                            val temp = newSegs[i - 1]
-                            newSegs[i - 1] = newSegs[i]
-                            newSegs[i] = temp
-                            segments = newSegs
-                        }
-                    }) { Icon(Icons.Default.ArrowUpward, "") }
-                    IconButton(onClick = {
-                        val newSegs = segments.toMutableList()
-                        if (i < newSegs.size - 1) {
-                            val temp = newSegs[i + 1]
-                            newSegs[i + 1] = newSegs[i]
-                            newSegs[i] = temp
-                            segments = newSegs
-                        }
-                    }) { Icon(Icons.Default.ArrowDownward, "") }
+                    IconButton(
+                        onClick = {
+                            val newSegs = segments.toMutableList()
+                            if (i > 0) {
+                                val temp = newSegs[i - 1]
+                                newSegs[i - 1] = newSegs[i]
+                                newSegs[i] = temp
+                                segments = newSegs
+                            }
+                        },
+                        enabled = i > 0
+                    ) { Icon(Icons.Default.ArrowUpward, contentDescription = "Move segment ${i + 1} up") }
+                    IconButton(
+                        onClick = {
+                            val newSegs = segments.toMutableList()
+                            if (i < newSegs.size - 1) {
+                                val temp = newSegs[i + 1]
+                                newSegs[i + 1] = newSegs[i]
+                                newSegs[i] = temp
+                                segments = newSegs
+                            }
+                        },
+                        enabled = i < segments.size - 1
+                    ) { Icon(Icons.Default.ArrowDownward, contentDescription = "Move segment ${i + 1} down") }
                     IconButton(onClick = {
                         val newSegs = segments.toMutableList()
                         newSegs.removeAt(i)
                         segments = newSegs
-                    }) { Icon(Icons.Default.Delete, "") }
+                    }) { Icon(Icons.Default.Delete, contentDescription = "Delete segment ${i + 1}") }
                 }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
@@ -160,7 +166,7 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
                     val newSegs = segments.toMutableList()
                     newSegs.add(Segment(2.0, 60))
                     segments = newSegs
-                }) { Icon(Icons.Default.Add, "") }
+                }) { Icon(Icons.Default.Add, contentDescription = null) }
             }
         }
 
@@ -204,7 +210,7 @@ fun TemplateEditorScreen(id: String?, onNavigateBack: () -> Unit) {
                     hapticsOn = hapticsEnabled
                 )
             }) {
-                Icon(Icons.Default.PlayArrow, "")
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Test")
             }
