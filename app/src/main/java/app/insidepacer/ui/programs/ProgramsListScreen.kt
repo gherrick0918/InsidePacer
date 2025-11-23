@@ -40,7 +40,7 @@ fun ProgramsListScreen(
     val ctx = LocalContext.current
     val repo = remember { ProgramRepo(ctx) }
     val prefs = remember { ProgramPrefs(ctx) }
-    val programs by repo.programs.collectAsState()
+    val programs by repo.programs.collectAsState(initial = emptyList())
     val activeId: String? by prefs.activeProgramId.collectAsState(initial = null)
 
     Column(
