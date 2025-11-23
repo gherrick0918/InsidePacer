@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -69,7 +70,10 @@ fun SessionRunScreen() {
                         running = true
                         paused = false
                     },
-                    enabled = !running
+                    enabled = !running,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Start demo workout session"
+                    }
                 ) { Text("Start demo") }
                 Spacer(Modifier.width(12.dp))
                 Button(
@@ -84,6 +88,7 @@ fun SessionRunScreen() {
                     enabled = running,
                     modifier = Modifier.semantics {
                         stateDescription = if (paused) "Demo session is paused" else "Demo session is running"
+                        contentDescription = if (paused) "Resume demo session" else "Pause demo session"
                     }
                 ) { Text(if (paused) "Resume" else "Pause") }
                 Spacer(Modifier.width(12.dp))
@@ -93,7 +98,10 @@ fun SessionRunScreen() {
                         running = false
                         paused = false
                     },
-                    enabled = running
+                    enabled = running,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Stop demo session"
+                    }
                 ) { Text("Stop") }
             }
         }

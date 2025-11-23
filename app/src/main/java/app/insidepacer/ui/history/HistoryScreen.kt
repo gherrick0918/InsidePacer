@@ -80,7 +80,7 @@ fun HistoryScreen(
                 text = "Archive",
                 actions = {
                     OutlinedButton(onClick = { refresh() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh workout history")
                         Text("Refresh", modifier = Modifier.padding(start = 8.dp))
                     }
                     OutlinedButton(onClick = {
@@ -98,11 +98,11 @@ fun HistoryScreen(
                             ctx.startActivity(Intent.createChooser(share, "Export session CSVs"))
                         }
                     }) {
-                        Icon(Icons.Default.Share, contentDescription = "Export")
+                        Icon(Icons.Default.Share, contentDescription = "Export workout data to CSV")
                         Text("Export", modifier = Modifier.padding(start = 8.dp))
                     }
                     OutlinedButton(onClick = { showConfirm = true }) {
-                        Icon(Icons.Default.ClearAll, contentDescription = "Clear")
+                        Icon(Icons.Default.ClearAll, contentDescription = "Clear all workout history")
                         Text("Clear", modifier = Modifier.padding(start = 8.dp))
                     }
                 }
